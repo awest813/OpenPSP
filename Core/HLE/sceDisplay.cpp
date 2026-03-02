@@ -165,11 +165,13 @@ void __DisplayFlip(int cyclesLate);
 static void __DisplaySetFramerate(void);
 
 static bool UseAutoFrameSkip() {
-	return g_Config.bAutoFrameSkip && !g_Config.bSkipBufferEffects;
+	const auto settings = g_Config.GetRuntimeDisplayTimingSettings();
+	return settings.autoFrameSkip && !settings.skipBufferEffects;
 }
 
 static bool UseLagSync() {
-	return g_Config.bForceLagSync && !UseAutoFrameSkip();
+	const auto settings = g_Config.GetRuntimeDisplayTimingSettings();
+	return settings.forceLagSync && !UseAutoFrameSkip();
 }
 
 static void ScheduleLagSync(int over = 0) {
@@ -386,11 +388,12 @@ static int FrameTimingLimit() {
 	// Note: Fast-forward is OK in hardcore mode.
 	if (PSP_CoreParameter().fastForward)
 		return 0;
+	const auto settings = g_Config.GetRuntimeDisplayTimingSettings();
 	// Can't slow down in hardcore mode.
 	if (PSP_CoreParameter().fpsLimit == FPSLimit::CUSTOM1)
-		return fixRate(g_Config.iFpsLimit1);
+		return fixRate(settings.fpsLimit1);
 	if (PSP_CoreParameter().fpsLimit == FPSLimit::CUSTOM2)
-		return fixRate(g_Config.iFpsLimit2);
+		return fixRate(settings.fpsLimit2);
 	if (PSP_CoreParameter().fpsLimit == FPSLimit::ANALOG)
 		return fixRate(PSP_CoreParameter().analogFpsLimit);
 	return framerate;
@@ -415,12 +418,13 @@ static void DoFrameDropLogging(float scaledTimestep) {
 static void DoFrameTiming(bool throttle, bool *skipFrame, float scaledTimestep, bool endOfFrame) {
 	PROFILE_THIS_SCOPE("timing");
 	*skipFrame = false;
+	const auto settings = g_Config.GetRuntimeDisplayTimingSettings();
 
 	const bool autoFrameSkip = UseAutoFrameSkip();
 
 	// Check if the frameskipping code should be enabled. If neither throttling or frameskipping is on,
 	// we have nothing to do here.
-	bool doFrameSkip = g_Config.iFrameSkip != 0;
+	bool doFrameSkip = settings.frameSkip != 0;
 	if (!throttle && !doFrameSkip)
 		return;
 
@@ -435,12 +439,12 @@ static void DoFrameTiming(bool throttle, bool *skipFrame, float scaledTimestep, 
 	}
 	curFrameTime = time_now_d();
 
-	if (g_Config.bLogFrameDrops) {
+	if (settings.logFrameDrops) {
 		DoFrameDropLogging(scaledTimestep);
 	}
 
 	// Auto-frameskip automatically if speed limit is set differently than the default.
-	const int frameSkipNum = g_Config.iFrameSkip;
+	const int frameSkipNum = settings.frameSkip;
 	if (autoFrameSkip) {
 		// autoframeskip
 		// Argh, we are falling behind! Let's skip a frame and see if we catch up.
@@ -478,7 +482,8 @@ static void DoFrameTiming(bool throttle, bool *skipFrame, float scaledTimestep, 
 
 static void DoFrameIdleTiming() {
 	PROFILE_THIS_SCOPE("timing");
-	if (!FrameTimingThrottled() || !g_Config.bEnableSound || wasPaused) {
+	const auto settings = g_Config.GetRuntimeDisplayTimingSettings();
+	if (!FrameTimingThrottled() || !settings.enableSound || wasPaused) {
 		return;
 	}
 
@@ -503,7 +508,7 @@ static void DoFrameIdleTiming() {
 	if (numVBlanksSinceFlip >= 2 && before < goal) {
 		WaitUntil(before, goal, "frame-idle");
 
-		if ((DebugOverlay)g_Config.iDebugOverlay == DebugOverlay::FRAME_GRAPH || coreCollectDebugStats) {
+		if ((DebugOverlay)settings.debugOverlay == DebugOverlay::FRAME_GRAPH || coreCollectDebugStats) {
 			DisplayNotifySleep(time_now_d() - before);
 		}
 	}
@@ -558,10 +563,11 @@ static void NotifyUserIfSlow() {
 	// Let the user know if we're running slow, so they know to adjust settings.
 	// Sometimes users just think the sound emulation is broken.
 	static bool hasNotifiedSlow = false;
-	if (!g_Config.bHideSlowWarnings &&
+	const auto settings = g_Config.GetRuntimeDisplayTimingSettings();
+	if (!settings.hideSlowWarnings &&
 		!hasNotifiedSlow &&
 		PSP_CoreParameter().fpsLimit == FPSLimit::NORMAL &&
-		DisplayIsRunningSlow() && g_Config.bSoftwareRendering) {
+		DisplayIsRunningSlow() && settings.softwareRendering) {
 #ifndef _DEBUG
 		auto err = GetI18NCategory(I18NCat::ERRORS);
 		g_OSD.Show(OSDType::MESSAGE_INFO, err->T("Running slow: Try turning off Software Rendering"), 5.0f);
@@ -585,20 +591,21 @@ void __DisplayFlip(int cyclesLate) {
 	}
 
 	__DisplaySetFramerate();
+	const auto settings = g_Config.GetRuntimeDisplayTimingSettings();
 
 	flippedThisFrame = true;
 	// We flip only if the framebuffer was dirty. This eliminates flicker when using
 	// non-buffered rendering. The interaction with frame skipping seems to need
 	// some work.
 	// But, let's flip at least once every 10 vblanks, to update fps, etc.
-	const bool noRecentFlip = !g_Config.bSkipBufferEffects && numVBlanksSinceFlip >= 10;
+	const bool noRecentFlip = !settings.skipBufferEffects && numVBlanksSinceFlip >= 10;
 	// Also let's always flip for animated shaders.
 	bool postEffectRequiresFlip = false;
 
-	bool duplicateFrames = g_Config.bRenderDuplicateFrames && g_Config.iFrameSkip == 0;
+	bool duplicateFrames = settings.renderDuplicateFrames && settings.frameSkip == 0;
 
-	if (!g_Config.bSkipBufferEffects) {
-		postEffectRequiresFlip = duplicateFrames || g_Config.bShaderChainRequires60FPS;
+	if (!settings.skipBufferEffects) {
+		postEffectRequiresFlip = duplicateFrames || settings.shaderChainRequires60FPS;
 	}
 
 	if (!FrameTimingThrottled()) {
@@ -680,7 +687,7 @@ void __DisplayFlip(int cyclesLate) {
 	DoFrameTiming(throttle, &skipFrame, scaledTimestep, nextFrame);
 
 	int maxFrameskip = 8;
-	const int frameSkipNum = g_Config.iFrameSkip;
+	const int frameSkipNum = settings.frameSkip;
 	if (throttle) {
 		// 4 here means 1 drawn, 4 skipped - so 12 fps minimum.
 		maxFrameskip = frameSkipNum;
@@ -700,8 +707,8 @@ void __DisplayFlip(int cyclesLate) {
 		// NOTE!! It can happen that if we just toggled frameskip (especially auto), we are still in a state
 		// where we don't have a framebuffer bound, from the last frame. But framebuffermanager still might think
 		// that we're in non-buffered mode.
-		if (gpu->GetFramebufferManagerCommon() && !gpu->GetFramebufferManagerCommon()->UseBufferedRendering() && !g_Config.bSkipBufferEffects) {
-			gpu->GetFramebufferManagerCommon()->ForceUseBufferedRendering(!g_Config.bSkipBufferEffects);
+		if (gpu->GetFramebufferManagerCommon() && !gpu->GetFramebufferManagerCommon()->UseBufferedRendering() && !settings.skipBufferEffects) {
+			gpu->GetFramebufferManagerCommon()->ForceUseBufferedRendering(!settings.skipBufferEffects);
 			gstate_c.skipDrawReason &= ~SKIPDRAW_NON_DISPLAYED_FB;
 		}
 	}
@@ -713,7 +720,7 @@ void __DisplayFlip(int cyclesLate) {
 	CoreTiming::ScheduleEvent(0 - cyclesLate, afterFlipEvent, 0);
 	numVBlanksSinceFlip = 0;
 
-	if ((DebugOverlay)g_Config.iDebugOverlay == DebugOverlay::FRAME_GRAPH || coreCollectDebugStats) {
+	if ((DebugOverlay)settings.debugOverlay == DebugOverlay::FRAME_GRAPH || coreCollectDebugStats) {
 		// Track how long we sleep (whether vsync or sleep_ms.)
 		DisplayNotifySleep(time_now_d() - frameSleepStart, frameSleepPos);
 	}
@@ -769,7 +776,8 @@ void hleLagSync(u64 userdata, int cyclesLate) {
 	const int over = (int)((now - goal) * 1000000);
 	ScheduleLagSync(over - emuOver);
 
-	if ((DebugOverlay)g_Config.iDebugOverlay == DebugOverlay::FRAME_GRAPH || coreCollectDebugStats) {
+	const auto settings = g_Config.GetRuntimeDisplayTimingSettings();
+	if ((DebugOverlay)settings.debugOverlay == DebugOverlay::FRAME_GRAPH || coreCollectDebugStats) {
 		DisplayNotifySleep(now - before);
 	}
 }
@@ -828,7 +836,8 @@ void __DisplaySetFramebuf(u32 topaddr, int linesize, int pixelFormat, int sync) 
 		// IMMEDIATE means that the buffer is fine. We can just flip immediately.
 		// Doing it in non-buffered though creates problems (black screen) on occasion though
 		// so let's not.
-		if (!flippedThisFrame && !g_Config.bSkipBufferEffects) {
+		const auto settings = g_Config.GetRuntimeDisplayTimingSettings();
+		if (!flippedThisFrame && !settings.skipBufferEffects) {
 			double before_flip = time_now_d();
 			__DisplayFlip(0);
 			double after_flip = time_now_d();
@@ -1140,10 +1149,11 @@ void Register_sceDisplay_driver() {
 }
 
 static void __DisplaySetFramerate(void) {
+	const auto settings = g_Config.GetRuntimeDisplayTimingSettings();
 	if (System_GetPropertyInt(SYSPROP_DEVICE_TYPE) == DEVICE_TYPE_VR)
-		framerate = g_Config.bForce72Hz ? 72 : 60;
+		framerate = settings.force72Hz ? 72 : 60;
 	else
-		framerate = g_Config.iDisplayRefreshRate;
+		framerate = settings.displayRefreshRate;
 
 	timePerVblank = 1.001 / (double)framerate;
 	frameMs = 1001.0 / (double)framerate;

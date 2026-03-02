@@ -170,6 +170,23 @@ public:
 		bool vSync;
 		bool lowLatencyPresent;
 	};
+	struct RuntimeDisplayTimingSettings {
+		bool autoFrameSkip;
+		bool skipBufferEffects;
+		bool forceLagSync;
+		int fpsLimit1;
+		int fpsLimit2;
+		int frameSkip;
+		bool logFrameDrops;
+		bool enableSound;
+		int debugOverlay;
+		bool hideSlowWarnings;
+		bool softwareRendering;
+		bool renderDuplicateFrames;
+		bool shaderChainRequires60FPS;
+		bool force72Hz;
+		int displayRefreshRate;
+	};
 
 	~Config();
 
@@ -178,6 +195,25 @@ public:
 		return RuntimeGraphicsTimingSettings{
 			bVSync,
 			bLowLatencyPresent,
+		};
+	}
+	RuntimeDisplayTimingSettings GetRuntimeDisplayTimingSettings() const {
+		return RuntimeDisplayTimingSettings{
+			bAutoFrameSkip,
+			bSkipBufferEffects,
+			bForceLagSync,
+			iFpsLimit1,
+			iFpsLimit2,
+			iFrameSkip,
+			bLogFrameDrops,
+			bEnableSound,
+			iDebugOverlay,
+			bHideSlowWarnings,
+			bSoftwareRendering,
+			bRenderDuplicateFrames,
+			bShaderChainRequires60FPS,
+			bForce72Hz,
+			iDisplayRefreshRate,
 		};
 	}
 
