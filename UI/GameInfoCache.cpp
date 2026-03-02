@@ -549,7 +549,12 @@ public:
 		: gamePath_(gamePath), info_(info), flags_(flags) {}
 
 	~GameInfoWorkItem() {
-		info_->DisposeFileLoader();
+		// Keep loader alive while other pending work items are still running for this title.
+		// This avoids rebuilding file readers repeatedly when requests are split into fast/deferred stages.
+		std::lock_guard<std::mutex> lock(info_->lock);
+		if (info_->pendingFlags == GameInfoFlags::EMPTY) {
+			info_->DisposeFileLoader();
+		}
 	}
 
 	TaskType Type() const override {
