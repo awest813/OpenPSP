@@ -90,6 +90,7 @@ public:
 
 	u64 GetSizeUncompressedInBytes();  // NOTE: More expensive than GetGameSizeOnDiskInBytes().
 	u64 GetSizeOnDiskInBytes();
+	void GetSizeMetricsInBytes(bool needSizeOnDisk, bool needSizeUncompressed, u64 *sizeOnDisk, u64 *sizeUncompressed);
 	u64 GetGameSavedataSizeInBytes();  // For games
 	u64 GetInstallDataSizeInBytes();
 	void GetSavedataAndInstallSizesInBytes(u64 *savedataSize, u64 *installSize);

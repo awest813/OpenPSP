@@ -198,36 +198,70 @@ bool GameInfo::Delete() {
 }
 
 u64 GameInfo::GetSizeOnDiskInBytes() {
-	switch (fileType) {
-	case IdentifiedFileType::PSP_PBP_DIRECTORY:
-	case IdentifiedFileType::PSP_SAVEDATA_DIRECTORY:
-		return File::ComputeRecursiveDirectorySize(ResolvePBPDirectory(filePath_));
-	case IdentifiedFileType::PSP_DISC_DIRECTORY:
-		return File::ComputeRecursiveDirectorySize(GetFileLoader()->GetPath());
-	default:
-		return GetFileLoader()->FileSize();
-	}
+	u64 sizeOnDisk = 0;
+	GetSizeMetricsInBytes(true, false, &sizeOnDisk, nullptr);
+	return sizeOnDisk;
 }
 
 u64 GameInfo::GetSizeUncompressedInBytes() {
+	u64 sizeUncompressed = 0;
+	GetSizeMetricsInBytes(false, true, nullptr, &sizeUncompressed);
+	return sizeUncompressed;
+}
+
+void GameInfo::GetSizeMetricsInBytes(bool needSizeOnDisk, bool needSizeUncompressed, u64 *sizeOnDisk, u64 *sizeUncompressed) {
+	if (!needSizeOnDisk && !needSizeUncompressed) {
+		return;
+	}
+	if (needSizeOnDisk && sizeOnDisk) {
+		*sizeOnDisk = 0;
+	}
+	if (needSizeUncompressed && sizeUncompressed) {
+		*sizeUncompressed = 0;
+	}
+
 	switch (fileType) {
 	case IdentifiedFileType::PSP_PBP_DIRECTORY:
 	case IdentifiedFileType::PSP_SAVEDATA_DIRECTORY:
-		return File::ComputeRecursiveDirectorySize(ResolvePBPDirectory(filePath_));
-	case IdentifiedFileType::PSP_DISC_DIRECTORY:
-		return File::ComputeRecursiveDirectorySize(GetFileLoader()->GetPath());
-	default:
 	{
-		std::string errorString;
-		BlockDevice *blockDevice = ConstructBlockDevice(GetFileLoader().get(), &errorString);
-		if (blockDevice) {
-			u64 size = blockDevice->GetUncompressedSize();
-			delete blockDevice;
-			return size;
-		} else {
-			return GetFileLoader()->FileSize();
+		const u64 dirSize = File::ComputeRecursiveDirectorySize(ResolvePBPDirectory(filePath_));
+		if (needSizeOnDisk && sizeOnDisk) {
+			*sizeOnDisk = dirSize;
 		}
+		if (needSizeUncompressed && sizeUncompressed) {
+			*sizeUncompressed = dirSize;
+		}
+		return;
 	}
+	case IdentifiedFileType::PSP_DISC_DIRECTORY:
+	{
+		const u64 dirSize = File::ComputeRecursiveDirectorySize(GetFileLoader()->GetPath());
+		if (needSizeOnDisk && sizeOnDisk) {
+			*sizeOnDisk = dirSize;
+		}
+		if (needSizeUncompressed && sizeUncompressed) {
+			*sizeUncompressed = dirSize;
+		}
+		return;
+	}
+	default:
+		break;
+	}
+
+	std::shared_ptr<FileLoader> loader = GetFileLoader();
+	const u64 fileSize = loader ? loader->FileSize() : 0;
+	if (needSizeOnDisk && sizeOnDisk) {
+		*sizeOnDisk = fileSize;
+	}
+	if (needSizeUncompressed && sizeUncompressed) {
+		std::string errorString;
+		BlockDevice *blockDevice = loader ? ConstructBlockDevice(loader.get(), &errorString) : nullptr;
+		if (blockDevice) {
+			*sizeUncompressed = blockDevice->GetUncompressedSize();
+			delete blockDevice;
+		} else {
+			*sizeUncompressed = fileSize;
+		}
 	}
 }
 
@@ -947,15 +981,21 @@ handleELF:
 			info_->hasConfig = g_Config.HasGameConfig(info_->id);
 		}
 
-		if (flags_ & GameInfoFlags::SIZE) {
-			const u64 gameSizeOnDisk = info_->GetSizeOnDiskInBytes();
-			u64 saveDataSize = 0;
-			u64 installDataSize = 0;
-
+		const bool needSizeOnDisk = (flags_ & GameInfoFlags::SIZE) != GameInfoFlags::EMPTY;
+		const bool needSizeUncompressed = (flags_ & GameInfoFlags::UNCOMPRESSED_SIZE) != GameInfoFlags::EMPTY;
+		if (needSizeOnDisk || needSizeUncompressed) {
+			u64 gameSizeOnDisk = 0;
+			u64 gameSizeUncompressed = 0;
+			info_->GetSizeMetricsInBytes(needSizeOnDisk, needSizeUncompressed, &gameSizeOnDisk, &gameSizeUncompressed);
 			std::lock_guard<std::mutex> lock(info_->lock);
-			info_->gameSizeOnDisk = gameSizeOnDisk;
-			info_->saveDataSize = saveDataSize;
-			info_->installDataSize = installDataSize;
+			if (needSizeOnDisk) {
+				info_->gameSizeOnDisk = gameSizeOnDisk;
+				info_->saveDataSize = 0;
+				info_->installDataSize = 0;
+			}
+			if (needSizeUncompressed) {
+				info_->gameSizeUncompressed = gameSizeUncompressed;
+			}
 		}
 
 		if (flags_ & GameInfoFlags::SAVEDATA_SIZE) {
@@ -977,10 +1017,6 @@ handleELF:
 			default:
 				break;
 			}
-		}
-
-		if (flags_ & GameInfoFlags::UNCOMPRESSED_SIZE) {
-			info_->gameSizeUncompressed = info_->GetSizeUncompressedInBytes();
 		}
 
 		// Time to update the flags.
