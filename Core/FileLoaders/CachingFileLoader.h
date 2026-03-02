@@ -18,6 +18,7 @@
 #pragma once
 
 #include <map>
+#include <atomic>
 #include <mutex>
 #include <thread>
 
@@ -58,8 +59,8 @@ private:
 	};
 
 	s64 filesize_ = 0;
-	int exists_ = -1;
-	int isDirectory_ = -1;
+	std::atomic<int> exists_{-1};
+	std::atomic<int> isDirectory_{-1};
 	u64 generation_ = 0;
 	u64 oldestGeneration_ = 0;
 	size_t cacheSize_ = 0;

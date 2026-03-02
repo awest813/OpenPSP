@@ -44,24 +44,29 @@ CachingFileLoader::~CachingFileLoader() {
 }
 
 bool CachingFileLoader::Exists() {
-	if (exists_ == -1) {
-		exists_ = ProxiedFileLoader::Exists() ? 1 : 0;
+	int cached = exists_.load(std::memory_order_relaxed);
+	if (cached == -1) {
+		cached = ProxiedFileLoader::Exists() ? 1 : 0;
+		exists_.store(cached, std::memory_order_relaxed);
 	}
-	return exists_ == 1;
+	return cached == 1;
 }
 
 bool CachingFileLoader::ExistsFast() {
-	if (exists_ == -1) {
+	int cached = exists_.load(std::memory_order_relaxed);
+	if (cached == -1) {
 		return ProxiedFileLoader::ExistsFast();
 	}
-	return exists_ == 1;
+	return cached == 1;
 }
 
 bool CachingFileLoader::IsDirectory() {
-	if (isDirectory_ == -1) {
-		isDirectory_ = ProxiedFileLoader::IsDirectory() ? 1 : 0;
+	int cached = isDirectory_.load(std::memory_order_relaxed);
+	if (cached == -1) {
+		cached = ProxiedFileLoader::IsDirectory() ? 1 : 0;
+		isDirectory_.store(cached, std::memory_order_relaxed);
 	}
-	return isDirectory_ == 1;
+	return cached == 1;
 }
 
 s64 CachingFileLoader::FileSize() {

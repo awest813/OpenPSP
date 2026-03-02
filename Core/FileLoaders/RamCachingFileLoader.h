@@ -18,6 +18,7 @@
 #pragma once
 
 #include <vector>
+#include <atomic>
 #include <mutex>
 #include <thread>
 
@@ -59,8 +60,8 @@ private:
 
 	s64 filesize_ = 0;
 	u8 *cache_ = nullptr;
-	int exists_ = -1;
-	int isDirectory_ = -1;
+	std::atomic<int> exists_{-1};
+	std::atomic<int> isDirectory_{-1};
 
 	std::vector<u8> blocks_;
 	std::mutex blocksMutex_;
