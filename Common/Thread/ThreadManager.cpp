@@ -307,10 +307,15 @@ void ThreadManager::EnqueueTask(Task *task) {
 		minThread = numComputeThreads_;
 		maxThread = numThreads_;
 	}
+	const int threadRange = maxThread - minThread;
+	_assert_(threadRange > 0);
+	const int roundRobinSeed = global_->roundRobin.fetch_add(1, std::memory_order_relaxed);
+	const int startThread = minThread + (roundRobinSeed % threadRange);
 
 	// Find a thread with no outstanding work.
 	_assert_(maxThread <= (int)global_->threads_.size());
-	for (int threadNum = minThread; threadNum < maxThread; threadNum++) {
+	for (int i = 0; i < threadRange; ++i) {
+		int threadNum = minThread + ((startThread - minThread + i) % threadRange);
 		TaskThreadContext *thread = global_->threads_[threadNum];
 		if (thread->queue_size.load() == 0) {
 			std::unique_lock<std::mutex> lock(thread->mutex);
@@ -341,9 +346,7 @@ void ThreadManager::EnqueueTask(Task *task) {
 		global_->dispatched_to_global.fetch_add(1, std::memory_order_relaxed);
 	}
 
-	int chosenIndex = global_->roundRobin++;
-	chosenIndex = minThread + (chosenIndex % (maxThread - minThread));
-	TaskThreadContext *&chosenThread = global_->threads_[chosenIndex];
+	TaskThreadContext *&chosenThread = global_->threads_[startThread];
 
 	// Lock the thread to ensure it gets the message.
 	std::unique_lock<std::mutex> lock(chosenThread->mutex);
