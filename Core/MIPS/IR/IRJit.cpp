@@ -328,6 +328,9 @@ std::vector<int> IRBlockCache::FindInvalidatedBlockNumbers(u32 address, u32 leng
 
 		const std::vector<int> &blocksInPage = iter->second;
 		for (int i : blocksInPage) {
+			if (i < 0 || i >= (int)blocks_.size()) {
+				continue;
+			}
 			if (blocks_[i].OverlapsRange(address, lengthInBytes)) {
 				// We now try to remove these during invalidation.
 				// A block can span multiple pages, so we'll deduplicate below.
@@ -424,6 +427,9 @@ int IRBlockCache::FindPreloadBlock(u32 em_address) {
 
 	const std::vector<int> &blocksInPage = iter->second;
 	for (int i : blocksInPage) {
+		if (i < 0 || i >= (int)blocks_.size()) {
+			continue;
+		}
 		if (blocks_[i].GetOriginalStart() == em_address) {
 			if (blocks_[i].HashMatches()) {
 				return i;
