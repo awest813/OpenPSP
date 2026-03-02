@@ -261,18 +261,15 @@ IRBlockCache::IRBlockCache(bool compileToNative) : compileToNative_(compileToNat
 
 int IRBlockCache::AllocateBlock(int emAddr, u32 origSize, const std::vector<IRInst> &insts) {
 	// We have 24 bits to represent offsets with.
-	const u32 MAX_ARENA_SIZE = 0x1000000 - 1;
-	int offset = (int)arena_.size();
-	if (offset >= MAX_ARENA_SIZE) {
+	const size_t MAX_ARENA_SIZE = 0x1000000 - 1;
+	const size_t offset = arena_.size();
+	if (offset >= MAX_ARENA_SIZE || insts.size() > MAX_ARENA_SIZE - offset) {
 		WARN_LOG(Log::JIT, "Filled JIT arena, restarting");
 		return -1;
 	}
-	// TODO: Use memcpy.
-	for (int i = 0; i < insts.size(); i++) {
-		arena_.push_back(insts[i]);
-	}
+	arena_.insert(arena_.end(), insts.begin(), insts.end());
 	int newBlockIndex = (int)blocks_.size();
-	blocks_.push_back(IRBlock(emAddr, origSize, offset, (u32)insts.size()));
+	blocks_.push_back(IRBlock(emAddr, origSize, (int)offset, (u32)insts.size()));
 	return newBlockIndex;
 }
 
