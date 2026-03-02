@@ -584,6 +584,14 @@ public:
 	}
 
 	void Run() override {
+		{
+			std::lock_guard<std::mutex> lock(info_->lock);
+			// If these flags are no longer pending, this work item has become stale.
+			if ((info_->pendingFlags & flags_) == GameInfoFlags::EMPTY) {
+				return;
+			}
+		}
+
 		// An early-return will result in the destructor running, where we can set
 		// flags like working and pending.
 		if (!info_->CreateLoader() || !info_->GetFileLoader() || !info_->GetFileLoader()->Exists()) {
@@ -1026,6 +1034,10 @@ void GameInfoCache::Clear() {
 void GameInfoCache::CancelAll() {
 	std::lock_guard<std::mutex> lock(mapLock_);
 	for (auto info : info_) {
+		{
+			std::lock_guard<std::mutex> guard(info.second->lock);
+			info.second->pendingFlags = GameInfoFlags::EMPTY;
+		}
 		// GetFileLoader will create one if there isn't one already.
 		// Avoid that by checking.
 		if (info.second->HasFileLoader()) {
