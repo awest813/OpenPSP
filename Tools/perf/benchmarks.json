@@ -1,0 +1,45 @@
+{
+  "schema": "ppsspp_perf_benchmarks_v1",
+  "default_bench_runs": 20,
+  "default_repetitions": 2,
+  "tests": [
+    {
+      "id": "cpu-alu",
+      "test": "cpu/cpu_alu/cpu_alu"
+    },
+    {
+      "id": "vfpu-matrix",
+      "test": "cpu/vfpu/matrix"
+    },
+    {
+      "id": "gpu-primitives-triangles",
+      "test": "gpu/primitives/triangles"
+    },
+    {
+      "id": "gpu-textures-mipmap",
+      "test": "gpu/textures/mipmap"
+    },
+    {
+      "id": "threads-threads",
+      "test": "threads/threads/threads"
+    }
+  ],
+  "profiles": [
+    {
+      "id": "ci-software",
+      "description": "Portable CI benchmark profile using software renderer and JIT",
+      "args": [
+        "--graphics=software",
+        "-j"
+      ]
+    },
+    {
+      "id": "software-interpreter",
+      "description": "Reference profile using software renderer and interpreter core",
+      "args": [
+        "--graphics=software",
+        "-i"
+      ]
+    }
+  ]
+}

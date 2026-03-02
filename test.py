@@ -6,6 +6,7 @@ import os
 import subprocess
 import threading
 import glob
+import json
 
 
 PPSSPP_EXECUTABLES = [
@@ -32,6 +33,7 @@ PPSSPP_EXECUTABLES = [
 PPSSPP_EXE = None
 TEST_ROOT = "pspautotests/tests/"
 TIMEOUT = 5
+BENCH_CONFIG_DEFAULT = "Tools/perf/benchmarks.json"
 
 class Command(object):
   def __init__(self, cmd, data = None):
@@ -541,8 +543,8 @@ def init():
 def run_tests(test_list, args):
   global PPSSPP_EXE, TIMEOUT
   returncode = 0
-
   test_filenames = []
+
   for test in test_list:
     # Try prx first
     elf_filename = TEST_ROOT + test + ".prx"
@@ -564,22 +566,152 @@ def run_tests(test_list, args):
 
   return returncode
 
+def load_bench_config(config_path):
+  if not os.path.exists(config_path):
+    print("Benchmark config not found: " + config_path)
+    sys.exit(1)
+
+  with open(config_path, "r") as f:
+    config = json.load(f)
+
+  tests = []
+  for entry in config.get("tests", []):
+    if isinstance(entry, dict):
+      if "test" in entry:
+        tests.append(entry["test"])
+    elif isinstance(entry, str):
+      tests.append(entry)
+
+  return {
+    "tests": tests,
+    "default_bench_runs": config.get("default_bench_runs"),
+    "default_repetitions": config.get("default_repetitions"),
+  }
+
+def parse_bench_record(line, prefix):
+  if not line.startswith(prefix):
+    return None
+  payload = line[len(prefix):].strip()
+  if not payload:
+    return None
+  try:
+    return json.loads(payload)
+  except ValueError:
+    return None
+
+def run_benchmarks(test_list, args, bench_runs, bench_repetitions, bench_output):
+  global PPSSPP_EXE, TIMEOUT
+  returncode = 0
+  bench_results = []
+  headless_args = [i for i in args if i not in ['-g', '-m', '-b']]
+
+  for test in test_list:
+    # Try prx first
+    test_filename = TEST_ROOT + test + ".prx"
+    if not os.path.exists(test_filename):
+      print("WARNING: no prx, trying elf")
+      test_filename = TEST_ROOT + test + ".elf"
+
+    for repetition in range(bench_repetitions):
+      cmdline = [
+        PPSSPP_EXE,
+        '--root',
+        TEST_ROOT + '../',
+        '--bench',
+        '--bench-runs=' + str(bench_runs),
+        '--timeout=' + str(TIMEOUT),
+        test_filename,
+      ]
+      cmdline.extend(headless_args)
+
+      process = subprocess.Popen(cmdline, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, universal_newlines=True)
+      output, _ = process.communicate()
+      if output:
+        sys.stdout.write(output)
+
+      bench_result = None
+      if output:
+        for line in output.splitlines():
+          parsed = parse_bench_record(line, "BENCH_RESULT ")
+          if parsed is not None:
+            bench_result = parsed
+
+      if bench_result is None:
+        print("ERROR: Missing BENCH_RESULT output for " + test)
+        returncode = process.returncode if process.returncode else 1
+      else:
+        bench_result["requested_test"] = test
+        bench_result["repetition"] = repetition + 1
+        bench_results.append(bench_result)
+
+      if process.returncode != 0 and returncode == 0:
+        returncode = process.returncode
+
+      print("Ran " + ' '.join(cmdline))
+
+  if bench_results:
+    grouped = {}
+    for result in bench_results:
+      test_id = result.get("test_id", result.get("requested_test", "unknown"))
+      grouped.setdefault(test_id, []).append(result)
+
+    print("Benchmark summary:")
+    for test_id in sorted(grouped):
+      samples = grouped[test_id]
+      avg_seconds = sum(float(sample.get("avg_seconds", 0.0)) for sample in samples) / float(len(samples))
+      avg_rps = sum(float(sample.get("runs_per_second", 0.0)) for sample in samples) / float(len(samples))
+      print("  {} - avg_seconds={:.6f}, runs_per_second={:.3f}, samples={}".format(test_id, avg_seconds, avg_rps, len(samples)))
+
+  if bench_output:
+    payload = {
+      "schema": "ppsspp_testpy_bench_v1",
+      "bench_runs": bench_runs,
+      "bench_repetitions": bench_repetitions,
+      "results": bench_results,
+    }
+    output_dir = os.path.dirname(bench_output)
+    if output_dir and not os.path.exists(output_dir):
+      os.makedirs(output_dir)
+    with open(bench_output, "w") as f:
+      json.dump(payload, f, indent=2, sort_keys=True)
+    print("Wrote benchmark report to " + bench_output)
+
+  return returncode
+
 def main():
   init()
   tests = []
   args = []
   teamcity = False
+  bench_mode = False
+  bench_config = BENCH_CONFIG_DEFAULT
+  bench_output = None
+  bench_runs = None
+  bench_repetitions = None
+
   for arg in sys.argv[1:]:
     if arg == '--teamcity':
       args.append(arg)
       teamcity = True
+    elif arg == '--bench':
+      bench_mode = True
+    elif arg.startswith('--bench-config='):
+      bench_config = arg[len('--bench-config='):]
+    elif arg.startswith('--bench-output='):
+      bench_output = arg[len('--bench-output='):]
+    elif arg.startswith('--bench-runs='):
+      bench_runs = max(1, int(arg[len('--bench-runs='):]))
+    elif arg.startswith('--bench-repetitions='):
+      bench_repetitions = max(1, int(arg[len('--bench-repetitions='):]))
     elif arg[0] == '-':
       args.append(arg)
     else:
       tests.append(arg)
 
   if not tests:
-    if '-g' in args:
+    if bench_mode and '-g' not in args and '-b' not in args:
+      tests = []
+    elif '-g' in args:
       tests = tests_good
     elif '-b' in args:
       tests = tests_next
@@ -592,7 +724,27 @@ def main():
   elif '-m' in args:
     tests = [i for i in tests_next + tests_good if i.startswith(tests[0])]
 
-  returncode = run_tests(tests, args)
+  if bench_mode:
+    if not tests:
+      config = load_bench_config(bench_config)
+      tests = config["tests"]
+      if bench_runs is None and config["default_bench_runs"] is not None:
+        bench_runs = max(1, int(config["default_bench_runs"]))
+      if bench_repetitions is None and config["default_repetitions"] is not None:
+        bench_repetitions = max(1, int(config["default_repetitions"]))
+
+    if not tests:
+      print("No benchmark tests selected.")
+      return 1
+
+    if bench_runs is None:
+      bench_runs = 100
+    if bench_repetitions is None:
+      bench_repetitions = 1
+    returncode = run_benchmarks(tests, args, bench_runs, bench_repetitions, bench_output)
+  else:
+    returncode = run_tests(tests, args)
+
   if teamcity:
     return 0
   return returncode

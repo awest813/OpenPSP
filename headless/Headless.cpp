@@ -7,9 +7,11 @@
 // NOTE: In MSVC, don't forget to set the working directory to $ProjectDir\.. in debug settings.
 
 #include "ppsspp_config.h"
+#include <cmath>
 #include <cstdio>
 #include <cstdlib>
 #include <limits>
+#include <sstream>
 #if PPSSPP_PLATFORM(ANDROID)
 #include <jni.h>
 #endif
@@ -152,6 +154,7 @@ int printUsage(const char *progname, const char *reason)
 	fprintf(stderr, "  -j                    use jit (default)\n");
 	fprintf(stderr, "  -c, --compare         compare with output in file.expected\n");
 	fprintf(stderr, "  --bench               run multiple times and output speed\n");
+	fprintf(stderr, "  --bench-runs=NUMBER   benchmark run count per test (default 100)\n");
 	fprintf(stderr, "\nSee headless.txt for details.\n");
 
 	return 1;
@@ -174,10 +177,175 @@ static HeadlessHost *getHost(GPUCore gpuCore) {
 struct AutoTestOptions {
 	double timeout;
 	double maxScreenshotError;
+	int benchRuns;
 	bool compare : 1;
 	bool verbose : 1;
 	bool bench : 1;
 };
+
+struct BenchRunResult {
+	int requestedRuns = 0;
+	int completedRuns = 0;
+	int successfulRuns = 0;
+	double totalSeconds = 0.0;
+	bool success = false;
+};
+
+static std::string JsonEscape(const std::string &value) {
+	std::string escaped;
+	escaped.reserve(value.size() + 8);
+	for (char c : value) {
+		switch (c) {
+		case '\\': escaped += "\\\\"; break;
+		case '"': escaped += "\\\""; break;
+		case '\b': escaped += "\\b"; break;
+		case '\f': escaped += "\\f"; break;
+		case '\n': escaped += "\\n"; break;
+		case '\r': escaped += "\\r"; break;
+		case '\t': escaped += "\\t"; break;
+		default:
+			if ((unsigned char)c < 0x20) {
+				escaped += StringFromFormat("\\u%04x", (unsigned int)(unsigned char)c);
+			} else {
+				escaped += c;
+			}
+			break;
+		}
+	}
+	return escaped;
+}
+
+static const char *GPUCoreToBenchName(GPUCore core) {
+	switch (core) {
+	case GPUCORE_GLES: return "gles";
+	case GPUCORE_SOFTWARE: return "software";
+	case GPUCORE_DIRECTX11: return "directx11";
+	case GPUCORE_VULKAN: return "vulkan";
+	default: return "unknown";
+	}
+}
+
+static const char *CPUCoreToBenchName(CPUCore core) {
+	switch (core) {
+	case CPUCore::INTERPRETER: return "interpreter";
+	case CPUCore::JIT: return "jit";
+	case CPUCore::IR_INTERPRETER: return "ir_interpreter";
+	case CPUCore::JIT_IR: return "jit_ir";
+	default: return "unknown";
+	}
+}
+
+static const char *BuildTypeToBenchName() {
+#if defined(_DEBUG)
+	return "debug";
+#else
+	return "release";
+#endif
+}
+
+static const char *CompilerToBenchName() {
+#if defined(__clang__)
+	return "clang";
+#elif defined(_MSC_VER)
+	return "msvc";
+#elif defined(__GNUC__)
+	return "gcc";
+#else
+	return "unknown";
+#endif
+}
+
+static const char *PlatformToBenchName() {
+#if PPSSPP_PLATFORM(WINDOWS)
+	return "windows";
+#elif PPSSPP_PLATFORM(MAC)
+	return "mac";
+#elif PPSSPP_PLATFORM(IOS)
+	return "ios";
+#elif PPSSPP_PLATFORM(ANDROID)
+	return "android";
+#elif PPSSPP_PLATFORM(LINUX)
+	return "linux";
+#elif PPSSPP_PLATFORM(OPENBSD)
+	return "openbsd";
+#else
+	return "unknown";
+#endif
+}
+
+static const char *ArchToBenchName() {
+#if PPSSPP_ARCH(AMD64)
+	return "amd64";
+#elif PPSSPP_ARCH(X86)
+	return "x86";
+#elif PPSSPP_ARCH(ARM64)
+	return "arm64";
+#elif PPSSPP_ARCH(ARM)
+	return "arm";
+#elif PPSSPP_ARCH(RISCV64)
+	return "riscv64";
+#elif PPSSPP_ARCH(LOONGARCH64)
+	return "loongarch64";
+#elif PPSSPP_ARCH(MIPS64)
+	return "mips64";
+#elif PPSSPP_ARCH(MIPS)
+	return "mips";
+#else
+	return "unknown";
+#endif
+}
+
+static void PrintBenchMeta(const AutoTestOptions &opt, const CoreParameter &coreParameter) {
+	std::ostringstream json;
+	json << "BENCH_META {";
+	json << "\"schema\":\"ppsspp_headless_bench_v1\"";
+	json << ",\"gpu_backend\":\"" << GPUCoreToBenchName(coreParameter.gpuCore) << "\"";
+	json << ",\"cpu_core\":\"" << CPUCoreToBenchName(coreParameter.cpuCore) << "\"";
+	json << ",\"build_type\":\"" << BuildTypeToBenchName() << "\"";
+	json << ",\"compiler\":\"" << CompilerToBenchName() << "\"";
+	json << ",\"platform\":\"" << PlatformToBenchName() << "\"";
+	json << ",\"arch\":\"" << ArchToBenchName() << "\"";
+	json << ",\"bench_runs\":" << opt.benchRuns;
+	if (std::isfinite(opt.timeout)) {
+		json << ",\"timeout_seconds\":" << opt.timeout;
+	} else {
+		json << ",\"timeout_seconds\":null";
+	}
+	json << "}";
+	printf("%s\n", json.str().c_str());
+}
+
+static void PrintBenchResult(const AutoTestOptions &opt, const CoreParameter &coreParameter, const BenchRunResult &result) {
+	const std::string testName = GetTestName(coreParameter.fileToStart);
+	const double avgSeconds = result.completedRuns > 0 ? result.totalSeconds / (double)result.completedRuns : 0.0;
+	const double runsPerSecond = result.totalSeconds > 0.0 ? (double)result.completedRuns / result.totalSeconds : 0.0;
+
+	std::ostringstream json;
+	json << "BENCH_RESULT {";
+	json << "\"schema\":\"ppsspp_headless_bench_v1\"";
+	json << ",\"test_id\":\"" << JsonEscape(testName) << "\"";
+	json << ",\"test_file\":\"" << JsonEscape(coreParameter.fileToStart.ToString()) << "\"";
+	json << ",\"gpu_backend\":\"" << GPUCoreToBenchName(coreParameter.gpuCore) << "\"";
+	json << ",\"cpu_core\":\"" << CPUCoreToBenchName(coreParameter.cpuCore) << "\"";
+	json << ",\"build_type\":\"" << BuildTypeToBenchName() << "\"";
+	json << ",\"compiler\":\"" << CompilerToBenchName() << "\"";
+	json << ",\"platform\":\"" << PlatformToBenchName() << "\"";
+	json << ",\"arch\":\"" << ArchToBenchName() << "\"";
+	json << ",\"requested_runs\":" << result.requestedRuns;
+	json << ",\"completed_runs\":" << result.completedRuns;
+	json << ",\"successful_runs\":" << result.successfulRuns;
+	json << ",\"total_seconds\":" << result.totalSeconds;
+	json << ",\"avg_seconds\":" << avgSeconds;
+	json << ",\"runs_per_second\":" << runsPerSecond;
+	json << ",\"success\":" << (result.success ? "true" : "false");
+	if (std::isfinite(opt.timeout)) {
+		json << ",\"timeout_seconds\":" << opt.timeout;
+	} else {
+		json << ",\"timeout_seconds\":null";
+	}
+	json << "}";
+	printf("%s\n", json.str().c_str());
+}
 
 bool RunAutoTest(HeadlessHost *headlessHost, CoreParameter &coreParameter, const AutoTestOptions &opt) {
 	// Kinda ugly, trying to guesstimate the test name from filename...
@@ -290,6 +458,26 @@ bool RunAutoTest(HeadlessHost *headlessHost, CoreParameter &coreParameter, const
 	return passed;
 }
 
+static BenchRunResult RunBenchmarks(HeadlessHost *headlessHost, CoreParameter &coreParameter, const AutoTestOptions &opt) {
+	BenchRunResult result{};
+	result.requestedRuns = std::max(1, opt.benchRuns);
+	const double start = time_now_d();
+
+	for (int i = 0; i < result.requestedRuns; ++i) {
+		const bool passed = RunAutoTest(headlessHost, coreParameter, opt);
+		result.completedRuns++;
+		if (passed) {
+			result.successfulRuns++;
+		} else {
+			break;
+		}
+	}
+
+	result.totalSeconds = time_now_d() - start;
+	result.success = result.successfulRuns == result.requestedRuns;
+	return result;
+}
+
 std::vector<std::string> ReadFromListFile(const std::string &listFilename) {
 	std::vector<std::string> testFilenames;
 	char temp[2048]{};
@@ -363,6 +551,7 @@ int main(int argc, const char* argv[])
 
 	AutoTestOptions testOptions{};
 	testOptions.timeout = std::numeric_limits<double>::infinity();
+	testOptions.benchRuns = 100;
 	bool fullLog = false;
 	const char *stateToLoad = 0;
 	GPUCore gpuCore = GPUCORE_SOFTWARE;
@@ -407,6 +596,8 @@ int main(int argc, const char* argv[])
 			testOptions.compare = true;
 		else if (!strcmp(argv[i], "--bench"))
 			testOptions.bench = true;
+		else if (!strncmp(argv[i], "--bench-runs=", strlen("--bench-runs=")) && strlen(argv[i]) > strlen("--bench-runs="))
+			testOptions.benchRuns = std::max(1, (int)strtol(argv[i] + strlen("--bench-runs="), nullptr, 10));
 		else if (!strcmp(argv[i], "-v") || !strcmp(argv[i], "--verbose"))
 			testOptions.verbose = true;
 		else if (!strcmp(argv[i], "--old-atrac"))
@@ -458,6 +649,9 @@ int main(int argc, const char* argv[])
 
 	if (testFilenames.size() == 1 && testFilenames[0][0] == '@')
 		testFilenames = ReadFromListFile(testFilenames[0].substr(1));
+
+	if (testOptions.compare && testOptions.bench)
+		return printUsage(argv[0], "--compare and --bench cannot be used together");
 
 	// Remove any ignored tests.
 	testFilenames.erase(
@@ -622,28 +816,26 @@ int main(int argc, const char* argv[])
 
 	std::vector<std::string> failedTests;
 	std::vector<std::string> passedTests;
+	if (testOptions.bench)
+		PrintBenchMeta(testOptions, coreParameter);
 	for (size_t i = 0; i < testFilenames.size(); ++i)
 	{
 		coreParameter.fileToStart = Path(testFilenames[i]);
 		if (testOptions.compare)
 			printf("%s:\n", coreParameter.fileToStart.c_str());
-		bool passed = RunAutoTest(headlessHost, coreParameter, testOptions);
 		if (testOptions.bench) {
-			double st = time_now_d();
-			double deadline = st + testOptions.timeout;
-			double runs = 0.0;
-			for (int i = 0; i < 100; ++i) {
-				RunAutoTest(headlessHost, coreParameter, testOptions);
-				runs++;
-
-				if (time_now_d() > deadline)
-					break;
-			}
-			double et = time_now_d();
-
+			BenchRunResult result = RunBenchmarks(headlessHost, coreParameter, testOptions);
 			std::string testName = GetTestName(coreParameter.fileToStart);
-			printf("  %s - %f seconds average\n", testName.c_str(), (et - st) / runs);
+			PrintBenchResult(testOptions, coreParameter, result);
+			if (result.success) {
+				passedTests.push_back(testName);
+			} else {
+				failedTests.push_back(testName);
+			}
+			continue;
 		}
+
+		bool passed = RunAutoTest(headlessHost, coreParameter, testOptions);
 		if (testOptions.compare) {
 			std::string testName = GetTestName(coreParameter.fileToStart);
 			if (passed) {
