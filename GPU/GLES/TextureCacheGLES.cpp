@@ -137,6 +137,9 @@ void TextureCacheGLES::StartFrame() {
 	if (!lowMemoryMode_ && renderManager->SawOutOfMemory()) {
 		lowMemoryMode_ = true;
 		decimationCounter_ = 0;
+		// Free aged textures immediately when memory pressure is detected instead of
+		// waiting for the next frame's decimation interval.
+		Decimate(nullptr, true);
 
 		auto err = GetI18NCategory(I18NCat::ERRORS);
 		if (standardScaleFactor_ > 1) {
