@@ -18,6 +18,7 @@
 #include "ppsspp_config.h"
 #include <set>
 #include <algorithm>
+#include <limits>
 
 #include "ext/xxhash.h"
 #include "Common/Profiler/Profiler.h"
@@ -484,7 +485,8 @@ JitBlockDebugInfo IRBlockCache::GetBlockDebugInfo(int blockNum) const {
 void IRBlockCache::ComputeStats(BlockCacheStats &bcStats) const {
 	double totalBloat = 0.0;
 	double maxBloat = 0.0;
-	double minBloat = 1000000000.0;
+	double minBloat = std::numeric_limits<double>::max();
+	int measuredBlocks = 0;
 	for (const auto &b : blocks_) {
 		double codeSize = (double)b.GetNumIRInstructions() * 4;  // We count bloat in instructions, not bytes. sizeof(IRInst);
 		if (codeSize == 0)
@@ -502,11 +504,18 @@ void IRBlockCache::ComputeStats(BlockCacheStats &bcStats) const {
 			bcStats.maxBloatBlock = origAddr;
 		}
 		totalBloat += bloat;
+		measuredBlocks++;
 	}
 	bcStats.numBlocks = (int)blocks_.size();
-	bcStats.minBloat = minBloat;
-	bcStats.maxBloat = maxBloat;
-	bcStats.avgBloat = totalBloat / (double)blocks_.size();
+	if (measuredBlocks > 0) {
+		bcStats.minBloat = minBloat;
+		bcStats.maxBloat = maxBloat;
+		bcStats.avgBloat = totalBloat / (double)measuredBlocks;
+	} else {
+		bcStats.minBloat = 0.0;
+		bcStats.maxBloat = 0.0;
+		bcStats.avgBloat = 0.0;
+	}
 }
 
 int IRBlockCache::GetBlockNumberFromStartAddress(u32 em_address) const {
