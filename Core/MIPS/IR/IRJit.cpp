@@ -310,8 +310,15 @@ int IRBlockCache::GetBlockNumFromIRArenaOffset(int offset) const {
 }
 
 std::vector<int> IRBlockCache::FindInvalidatedBlockNumbers(u32 address, u32 lengthInBytes) {
+	if (lengthInBytes == 0) {
+		return {};
+	}
 	u32 startPage = AddressToPage(address);
-	u32 endPage = AddressToPage(address + lengthInBytes);
+	u64 endAddress = (u64)address + (u64)lengthInBytes - 1;
+	if (endAddress > 0xFFFFFFFFULL) {
+		endAddress = 0xFFFFFFFFULL;
+	}
+	u32 endPage = AddressToPage((u32)endAddress);
 
 	std::vector<int> found;
 	for (u32 page = startPage; page <= endPage; ++page) {
@@ -346,7 +353,11 @@ void IRBlockCache::FinalizeBlock(int blockIndex) {
 	block.GetRange(&startAddr, &size);
 
 	u32 startPage = AddressToPage(startAddr);
-	u32 endPage = AddressToPage(startAddr + size);
+	u64 endAddr = size > 0 ? (u64)startAddr + (u64)size - 1 : (u64)startAddr;
+	if (endAddr > 0xFFFFFFFFULL) {
+		endAddr = 0xFFFFFFFFULL;
+	}
+	u32 endPage = AddressToPage((u32)endAddr);
 
 	for (u32 page = startPage; page <= endPage; ++page) {
 		byPage_[page].push_back(blockIndex);
@@ -362,7 +373,11 @@ void IRBlockCache::RemoveBlockFromPageLookup(int blockIndex) {
 	block.GetRange(&startAddr, &size);
 
 	u32 startPage = AddressToPage(startAddr);
-	u32 endPage = AddressToPage(startAddr + size);
+	u64 endAddr = size > 0 ? (u64)startAddr + (u64)size - 1 : (u64)startAddr;
+	if (endAddr > 0xFFFFFFFFULL) {
+		endAddr = 0xFFFFFFFFULL;
+	}
+	u32 endPage = AddressToPage((u32)endAddr);
 
 	for (u32 page = startPage; page <= endPage; ++page) {
 		auto iter = std::find(byPage_[page].begin(), byPage_[page].end(), blockIndex);
@@ -602,9 +617,15 @@ u64 IRBlock::CalculateHash() const {
 }
 
 bool IRBlock::OverlapsRange(u32 addr, u32 size) const {
-	addr &= 0x3FFFFFFF;
-	u32 origAddr = origAddr_ & 0x3FFFFFFF;
-	return addr + size > origAddr && addr < origAddr + origSize_;
+	if (size == 0 || origSize_ == 0 || !origAddr_) {
+		return false;
+	}
+	constexpr u64 PSP_ADDRESS_MASK = 0x3FFFFFFF;
+	u64 rangeStart = (u64)addr & PSP_ADDRESS_MASK;
+	u64 rangeEnd = rangeStart + (u64)size;
+	u64 blockStart = (u64)origAddr_ & PSP_ADDRESS_MASK;
+	u64 blockEnd = blockStart + (u64)origSize_;
+	return rangeEnd > blockStart && rangeStart < blockEnd;
 }
 
 MIPSOpcode IRJit::GetOriginalOp(MIPSOpcode op) {
