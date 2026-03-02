@@ -31,7 +31,7 @@ PipelineManagerVulkan::~PipelineManagerVulkan() {
 	// This is very important to do before we start trying to tear down the shaders - otherwise, we might
 	// be deleting shaders before queued pipeline creations that use them are performed.
 	pipelines_.Iterate([&](const VulkanPipelineKey &key, VulkanPipeline *value) {
-		if (value->pipeline) {
+		if (value && value->pipeline) {
 			value->pipeline->BlockUntilCompiled();
 		}
 	});
@@ -44,7 +44,9 @@ PipelineManagerVulkan::~PipelineManagerVulkan() {
 
 void PipelineManagerVulkan::Clear() {
 	pipelines_.Iterate([&](const VulkanPipelineKey &key, VulkanPipeline *value) {
-		if (!value->pipeline) {
+		if (!value) {
+			ERROR_LOG(Log::G3D, "Null pipeline entry found in PipelineManagerVulkan::Clear");
+		} else if (!value->pipeline) {
 			// Something went wrong.
 			ERROR_LOG(Log::G3D, "Null pipeline found in PipelineManagerVulkan::Clear - didn't wait for asyncs?");
 		} else {
@@ -58,7 +60,9 @@ void PipelineManagerVulkan::Clear() {
 
 void PipelineManagerVulkan::InvalidateMSAAPipelines() {
 	pipelines_.Iterate([&](const VulkanPipelineKey &key, VulkanPipeline *value) {
-		value->pipeline->DestroyVariants(vulkan_, true);
+		if (value && value->pipeline) {
+			value->pipeline->DestroyVariants(vulkan_, true);
+		}
 	});
 }
 
