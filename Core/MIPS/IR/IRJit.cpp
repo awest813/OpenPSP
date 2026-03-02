@@ -323,9 +323,14 @@ std::vector<int> IRBlockCache::FindInvalidatedBlockNumbers(u32 address, u32 leng
 		for (int i : blocksInPage) {
 			if (blocks_[i].OverlapsRange(address, lengthInBytes)) {
 				// We now try to remove these during invalidation.
+				// A block can span multiple pages, so we'll deduplicate below.
 				found.push_back(i);
 			}
 		}
+	}
+	if (found.size() > 1) {
+		std::sort(found.begin(), found.end());
+		found.erase(std::unique(found.begin(), found.end()), found.end());
 	}
 
 	return found;
