@@ -26,15 +26,19 @@ PipelineManagerVulkan::PipelineManagerVulkan(VulkanContext *vulkan) : pipelines_
 	// The pipeline cache is created on demand (or explicitly through Load).
 }
 
-PipelineManagerVulkan::~PipelineManagerVulkan() {
-	// Block on all pipelines to make sure any background compiles are done.
-	// This is very important to do before we start trying to tear down the shaders - otherwise, we might
-	// be deleting shaders before queued pipeline creations that use them are performed.
+void PipelineManagerVulkan::BlockUntilReady() {
 	pipelines_.Iterate([&](const VulkanPipelineKey &key, VulkanPipeline *value) {
 		if (value && value->pipeline) {
 			value->pipeline->BlockUntilCompiled();
 		}
 	});
+}
+
+PipelineManagerVulkan::~PipelineManagerVulkan() {
+	// Block on all pipelines to make sure any background compiles are done.
+	// This is very important to do before we start trying to tear down the shaders - otherwise, we might
+	// be deleting shaders before queued pipeline creations that use them are performed.
+	BlockUntilReady();
 
 	Clear();
 	if (pipelineCache_ != VK_NULL_HANDLE)
