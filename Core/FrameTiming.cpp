@@ -44,7 +44,10 @@ constexpr double g_MaxSleepTime = 0.5;  // 500ms.
 void WaitUntil(double now, double timestamp, const char *reason) {
 #if 1
 	// Use precise timing.
-	sleep_precise(std::min(timestamp - now, g_MaxSleepTime), reason);
+	const double left = timestamp - now;
+	if (left > 0.0) {
+		sleep_precise(std::min(left, g_MaxSleepTime), reason);
+	}
 #else
 
 #if PPSSPP_PLATFORM(WINDOWS)
