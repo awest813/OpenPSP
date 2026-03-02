@@ -335,6 +335,12 @@ int MIPSState::RunLoopUntil(u64 globalTicks) {
 	case CPUCore::JIT:
 	case CPUCore::JIT_IR:
 	case CPUCore::IR_INTERPRETER:
+		if (!MIPSComp::jit) {
+			WARN_LOG(Log::CPU, "Requested %s core without active JIT backend, falling back to interpreter loop",
+				PSP_CoreParameter().cpuCore == CPUCore::IR_INTERPRETER ? "IR interpreter" :
+				(PSP_CoreParameter().cpuCore == CPUCore::JIT_IR ? "JIT IR" : "JIT"));
+			return MIPSInterpret_RunUntil(globalTicks);
+		}
 		while (inDelaySlot) {
 			// We must get out of the delay slot before going into jit.
 			// This normally should never take more than one step...
