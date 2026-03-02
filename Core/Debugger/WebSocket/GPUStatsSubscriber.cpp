@@ -21,6 +21,7 @@
 #include "Core/Debugger/WebSocket/GPUStatsSubscriber.h"
 #include "Core/HW/Display.h"
 #include "Core/System.h"
+#include "Common/Thread/ThreadManager.h"
 
 struct CollectedStats {
 	float vps;
@@ -30,6 +31,12 @@ struct CollectedStats {
 	std::vector<float> frameTimes;
 	std::vector<float> sleepTimes;
 	int frameTimePos;
+	int computeQueueDepth;
+	int ioQueueDepth;
+	int computeQueueMax;
+	int ioQueueMax;
+	float workerWaitCount;
+	float workerWaitTimeMs;
 };
 
 struct DebuggerGPUStatsEvent {
@@ -61,6 +68,14 @@ struct DebuggerGPUStatsEvent {
 			j.writeFloat(t);
 		j.pop();
 		j.writeInt("pos", s.frameTimePos);
+		j.pop();
+		j.pushDict("threading");
+		j.writeInt("computeQueueDepth", s.computeQueueDepth);
+		j.writeInt("ioQueueDepth", s.ioQueueDepth);
+		j.writeInt("computeQueueMax", s.computeQueueMax);
+		j.writeInt("ioQueueMax", s.ioQueueMax);
+		j.writeFloat("workerWaitCount", s.workerWaitCount);
+		j.writeFloat("workerWaitTimeMs", s.workerWaitTimeMs);
 		j.pop();
 		j.end();
 		return j.str();
@@ -122,6 +137,13 @@ void WebSocketGPUStatsState::FlipListener() {
 
 	__DisplayGetFPS(&stats.vps, &stats.fps, &stats.actual_fps);
 	__DisplayGetDebugStats(stats.statbuf, sizeof(stats.statbuf));
+	ThreadManagerStats threadStats = g_threadManager.GetStats();
+	stats.computeQueueDepth = threadStats.computeQueueSize;
+	stats.ioQueueDepth = threadStats.ioQueueSize;
+	stats.computeQueueMax = threadStats.maxComputeQueueSize;
+	stats.ioQueueMax = threadStats.maxIOQueueSize;
+	stats.workerWaitCount = (float)threadStats.workerWaits;
+	stats.workerWaitTimeMs = (float)threadStats.workerWaitTimeUs * 0.001f;
 
 	int valid;
 	float *sleepHistory;
