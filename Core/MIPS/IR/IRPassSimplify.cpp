@@ -1350,9 +1350,9 @@ bool ReduceLoads(const IRWriter &in, IRWriter &out, const IROptions &opts) {
 	return logBlocks;
 }
 
-static std::vector<IRInst> ReorderLoadStoreOps(std::vector<IRInst> &ops) {
+static void ReorderLoadStoreOps(std::vector<IRInst> &ops) {
 	if (ops.size() < 2) {
-		return ops;
+		return;
 	}
 
 	bool modifiedRegs[256] = {};
@@ -1430,7 +1430,7 @@ static std::vector<IRInst> ReorderLoadStoreOps(std::vector<IRInst> &ops) {
 		}
 	}
 
-	return ops;
+	return;
 }
 
 bool ReorderLoadStore(const IRWriter &in, IRWriter &out, const IROptions &opts) {
@@ -1455,8 +1455,12 @@ bool ReorderLoadStore(const IRWriter &in, IRWriter &out, const IROptions &opts) 
 		}
 
 		std::vector<IRInst> loadStoreUnsorted = loadStoreQueue;
-		std::vector<IRInst> loadStoreSorted = ReorderLoadStoreOps(loadStoreQueue);
-		if (memcmp(&loadStoreSorted[0], &loadStoreUnsorted[0], sizeof(IRInst) * loadStoreSorted.size()) != 0) {
+		std::vector<IRInst> loadStoreSorted = loadStoreQueue;
+		ReorderLoadStoreOps(loadStoreSorted);
+		if (loadStoreSorted.size() != loadStoreUnsorted.size()) {
+			logBlocks = true;
+		} else if (!loadStoreSorted.empty() &&
+			memcmp(loadStoreSorted.data(), loadStoreUnsorted.data(), sizeof(IRInst) * loadStoreSorted.size()) != 0) {
 			logBlocks = true;
 		}
 
