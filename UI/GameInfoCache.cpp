@@ -299,27 +299,41 @@ std::string GameInfo::GetMTime() const {
 }
 
 // Not too meaningful if the object itself is a savedata directory...
-// Call this under lock.
 std::vector<Path> GameInfo::GetSaveDataDirectories() {
-	if (!(hasFlags & GameInfoFlags::PARAM_SFO)) {
-		ERROR_LOG(Log::UI, "Can't get savedata directories if we don't have PARAM_SFO.");
+	std::string idCopy;
+	{
+		std::lock_guard<std::mutex> guard(lock);
+		if (!(hasFlags & GameInfoFlags::PARAM_SFO)) {
+			ERROR_LOG(Log::UI, "Can't get savedata directories if we don't have PARAM_SFO.");
+			return std::vector<Path>();
+		}
+		if (!saveDataDirectoriesCache.empty() && time_now_d() - saveDataDirectoriesCacheTime < 2.0) {
+			return saveDataDirectoriesCache;
+		}
+		idCopy = id;
+	}
+
+	if (idCopy.size() < 5) {
+		ERROR_LOG(Log::UI, "Can't get savedata directories due to invalid game ID.");
 		return std::vector<Path>();
 	}
 
 	Path memc = GetSysDirectory(DIRECTORY_SAVEDATA);
 
 	std::vector<Path> directories;
-	if (id.size() < 5) {
-		// Invalid game ID.
-		return directories;
-	}
-
 	std::vector<File::FileInfo> dirs;
-	const std::string &prefix = id;
-	File::GetFilesInDir(memc, &dirs, nullptr, 0, prefix);
+	File::GetFilesInDir(memc, &dirs, nullptr, 0, idCopy);
 
 	for (size_t i = 0; i < dirs.size(); i++) {
 		directories.push_back(dirs[i].fullName);
+	}
+
+	{
+		std::lock_guard<std::mutex> guard(lock);
+		if (id == idCopy) {
+			saveDataDirectoriesCache = directories;
+			saveDataDirectoriesCacheTime = time_now_d();
+		}
 	}
 
 	return directories;
@@ -410,6 +424,8 @@ bool GameInfo::DeleteAllSaveData() {
 
 void GameInfo::ParseParamSFO(IdentifiedFileType type) {
 	title = paramSFO.GetValueString("TITLE");
+	saveDataDirectoriesCache.clear();
+	saveDataDirectoriesCacheTime = 0.0;
 	if (type != IdentifiedFileType::PSP_UMD_VIDEO_ISO) {
 		id = paramSFO.GetValueString("DISC_ID");
 		id_version = id + "_" + paramSFO.GetValueString("DISC_VERSION");

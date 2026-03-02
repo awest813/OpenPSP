@@ -22,6 +22,7 @@
 #include <memory>
 #include <mutex>
 #include <atomic>
+#include <vector>
 
 #include "Common/Thread/Event.h"
 #include "Core/ELF/ParamSFO.h"
@@ -171,6 +172,8 @@ public:
 	u64 gameSizeOnDisk = 0;  // compressed size, in case of CSO
 	u64 saveDataSize = 0;
 	u64 installDataSize = 0;
+	std::vector<Path> saveDataDirectoriesCache;
+	double saveDataDirectoriesCacheTime = 0.0;
 
 	std::string errorString;
 
