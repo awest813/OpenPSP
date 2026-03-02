@@ -21,6 +21,14 @@ Each `BENCH_RESULT` record includes per-run metadata:
 - `build_type`, `compiler`, `platform`, `arch`
 - `requested_runs`, `completed_runs`, `successful_runs`
 - `total_seconds`, `avg_seconds`, `runs_per_second`
+- thread scheduler deltas:
+  - `thread_enqueued_delta`
+  - `thread_dispatched_private_delta`
+  - `thread_dispatched_global_delta`
+  - `thread_worker_waits_delta`
+  - `thread_worker_wait_time_us_delta`
+  - `thread_compute_queue_max`
+  - `thread_io_queue_max`
 
 ## Running from `test.py`
 
