@@ -613,17 +613,19 @@ void IRBlock::Destroy(int cookie) {
 
 u64 IRBlock::CalculateHash() const {
 	if (origAddr_) {
+		if (origSize_ == 0) {
+			return 0;
+		}
 		// This is unfortunate. In case there are emuhacks, we have to make a copy.
 		// If we could hash while reading we could avoid this.
-		std::vector<u32> buffer;
-		buffer.resize(origSize_ / 4);
+		std::vector<u32> buffer(origSize_ / 4);
 		size_t pos = 0;
 		for (u32 off = 0; off < origSize_; off += 4) {
 			// Let's actually hash the replacement, if any.
 			MIPSOpcode instr = Memory::ReadUnchecked_Instruction(origAddr_ + off, false);
 			buffer[pos++] = instr.encoding;
 		}
-		return XXH3_64bits(&buffer[0], origSize_);
+		return XXH3_64bits(buffer.data(), origSize_);
 	}
 	return 0;
 }
