@@ -166,9 +166,20 @@ struct GestureControlConfig : public ConfigBlock {
 
 struct Config : public ConfigBlock {
 public:
+	struct RuntimeGraphicsTimingSettings {
+		bool vSync;
+		bool lowLatencyPresent;
+	};
+
 	~Config();
 
 	void Init();
+	RuntimeGraphicsTimingSettings GetRuntimeGraphicsTimingSettings() const {
+		return RuntimeGraphicsTimingSettings{
+			bVSync,
+			bLowLatencyPresent,
+		};
+	}
 
 	size_t Size() const override { return sizeof(Config); }
 

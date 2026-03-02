@@ -100,9 +100,12 @@ void FrameTiming::ComputePresentMode(Draw::DrawContext *draw, bool fastForward) 
 	}
 
 	// More than one present mode is supported. Use careful logic.
+	const auto timingSettings = g_Config.GetRuntimeGraphicsTimingSettings();
+	bool vSyncRequested = timingSettings.vSync;
+	const bool lowLatencyRequested = timingSettings.lowLatencyPresent;
 
 	// The user has requested vsync off.
-	if (!g_Config.bVSync) {
+	if (!vSyncRequested) {
 		if (draw->GetDeviceCaps().presentModesSupported & Draw::PresentMode::IMMEDIATE) {
 			// Use immediate mode, whether fast-forwarding or not.
 			presentMode_ = Draw::PresentMode::IMMEDIATE;
@@ -119,7 +122,7 @@ void FrameTiming::ComputePresentMode(Draw::DrawContext *draw, bool fastForward) 
 
 	// OK, vsync is requested (or immediate is not available). If mailbox is supported, it works the same as IMMEDIATE above.
 
-	if (g_Config.bLowLatencyPresent) {
+	if (lowLatencyRequested) {
 		// Use mailbox if available. It works fine for both fast-forward and normal.
 		if (draw->GetDeviceCaps().presentModesSupported & Draw::PresentMode::MAILBOX) {
 			presentMode_ = Draw::PresentMode::MAILBOX;
