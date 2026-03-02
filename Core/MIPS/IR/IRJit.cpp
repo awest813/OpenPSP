@@ -124,13 +124,19 @@ void IRJit::Compile(u32 em_address) {
 		// Ran out of block numbers - need to reset.
 		ERROR_LOG(Log::JIT, "Ran out of block numbers, clearing cache");
 		ClearCache();
-		CompileBlock(em_address, instructions, mipsBytes);
+		if (!CompileBlock(em_address, instructions, mipsBytes)) {
+			ERROR_LOG(Log::JIT, "Failed to compile block %08x after cache clear", em_address);
+			return;
+		}
 	}
 
 	if (frontend_.CheckRounding(em_address)) {
 		// Our assumptions are all wrong so it's clean-slate time.
 		ClearCache();
-		CompileBlock(em_address, instructions, mipsBytes);
+		if (!CompileBlock(em_address, instructions, mipsBytes)) {
+			ERROR_LOG(Log::JIT, "Failed to recompile block %08x after rounding reset", em_address);
+			return;
+		}
 	}
 }
 
