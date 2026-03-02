@@ -49,6 +49,22 @@
 
 GameInfoCache *g_gameInfoCache;
 
+static constexpr GameInfoFlags kGameInfoFastFlags = GameInfoFlags::FILE_TYPE | GameInfoFlags::PARAM_SFO | GameInfoFlags::ICON;
+static constexpr GameInfoFlags kGameInfoDeferredFlags =
+	GameInfoFlags::PIC0 | GameInfoFlags::PIC1 | GameInfoFlags::SND |
+	GameInfoFlags::SIZE | GameInfoFlags::UNCOMPRESSED_SIZE | GameInfoFlags::SAVEDATA_SIZE | GameInfoFlags::ICON1_PMF;
+
+static void SplitWantedFlags(GameInfoFlags wantedFlags, GameInfoFlags *fastFlags, GameInfoFlags *deferredFlags) {
+	*fastFlags = wantedFlags & kGameInfoFastFlags;
+	*deferredFlags = wantedFlags & kGameInfoDeferredFlags;
+
+	// If no "fast" flags were requested, don't add extra tasks.
+	if (*fastFlags == GameInfoFlags::EMPTY) {
+		*fastFlags = wantedFlags;
+		*deferredFlags = GameInfoFlags::EMPTY;
+	}
+}
+
 void GameInfoTex::Clear() {
 	if (!data.empty()) {
 		data.clear();
@@ -544,7 +560,17 @@ public:
 		switch (gamePath_.Type()) {
 		case PathType::NATIVE:
 		case PathType::CONTENT_URI:
-			return TaskPriority::NORMAL;
+			{
+				const bool hasDeferredFlags = (flags_ & kGameInfoDeferredFlags) != GameInfoFlags::EMPTY;
+				const bool hasFastFlags = (flags_ & kGameInfoFastFlags) != GameInfoFlags::EMPTY;
+				if (hasDeferredFlags && !hasFastFlags) {
+					return TaskPriority::LOW;
+				}
+				if (hasFastFlags && !hasDeferredFlags) {
+					return TaskPriority::HIGH;
+				}
+				return TaskPriority::NORMAL;
+			}
 
 		default:
 			// Remote/network access.
@@ -1097,9 +1123,14 @@ std::shared_ptr<GameInfo> GameInfoCache::GetInfo(Draw::DrawContext *draw, const 
 		}
 
 		if (wanted != (GameInfoFlags)0) {
-			// We're missing info that we want. Go get it!
-			GameInfoWorkItem *item = new GameInfoWorkItem(gamePath, info, wanted);
-			g_threadManager.EnqueueTask(item);
+			// We're missing info that we want. Prioritize quick visible fields first.
+			GameInfoFlags fastWanted{};
+			GameInfoFlags deferredWanted{};
+			SplitWantedFlags(wanted, &fastWanted, &deferredWanted);
+			g_threadManager.EnqueueTask(new GameInfoWorkItem(gamePath, info, fastWanted));
+			if (deferredWanted != GameInfoFlags::EMPTY) {
+				g_threadManager.EnqueueTask(new GameInfoWorkItem(gamePath, info, deferredWanted));
+			}
 		}
 		return info;
 	}
@@ -1113,8 +1144,13 @@ std::shared_ptr<GameInfo> GameInfoCache::GetInfo(Draw::DrawContext *draw, const 
 	}
 	mapLock_.unlock();
 
-	// Just get all the stuff we wanted.
-	GameInfoWorkItem *item = new GameInfoWorkItem(gamePath, info, wantFlags);
-	g_threadManager.EnqueueTask(item);
+	// Request quick visible fields first, then schedule deferred payloads behind them.
+	GameInfoFlags fastWanted{};
+	GameInfoFlags deferredWanted{};
+	SplitWantedFlags(wantFlags, &fastWanted, &deferredWanted);
+	g_threadManager.EnqueueTask(new GameInfoWorkItem(gamePath, info, fastWanted));
+	if (deferredWanted != GameInfoFlags::EMPTY) {
+		g_threadManager.EnqueueTask(new GameInfoWorkItem(gamePath, info, deferredWanted));
+	}
 	return info;
 }
