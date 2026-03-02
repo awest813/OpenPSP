@@ -589,8 +589,8 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 		int pixelStride = byteStride / bpp;
 		int uploadSize = byteStride * mipHeight;
 
-		uint32_t bufferOffset;
-		VkBuffer texBuf;
+		uint32_t bufferOffset = 0;
+		VkBuffer texBuf = VK_NULL_HANDLE;
 		// NVIDIA reports a min alignment of 1 but that can't be healthy... let's align by 16 as a minimum.
 		int pushAlignment = std::max(16, (int)vulkan->GetPhysicalDeviceProperties().properties.limits.optimalBufferCopyOffsetAlignment);
 		void *data;
