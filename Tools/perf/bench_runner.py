@@ -18,7 +18,7 @@ def load_config(config_path):
     return json.load(f)
 
 
-def selected_profiles(config, selected_ids):
+def selected_profiles(config, selected_ids, config_path):
   profiles = config.get("profiles", [])
   if not selected_ids:
     return profiles
@@ -27,7 +27,7 @@ def selected_profiles(config, selected_ids):
   by_id = {profile.get("id"): profile for profile in profiles}
   for profile_id in selected_ids:
     if profile_id not in by_id:
-      raise ValueError("Unknown profile '{}' in {}".format(profile_id, DEFAULT_CONFIG))
+      raise ValueError("Unknown profile '{}' in {}".format(profile_id, config_path))
     selected.append(by_id[profile_id])
   return selected
 
@@ -174,7 +174,7 @@ def main():
   args = parser.parse_args()
 
   config = load_config(args.config)
-  profiles = selected_profiles(config, args.profile)
+  profiles = selected_profiles(config, args.profile, args.config)
   if not profiles:
     print("No profiles configured in {}".format(args.config))
     return 1
