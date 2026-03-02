@@ -295,11 +295,13 @@ static const char *ArchToBenchName() {
 #endif
 }
 
-static void PrintBenchMeta(const AutoTestOptions &opt, const CoreParameter &coreParameter) {
+static void PrintBenchMeta(const AutoTestOptions &opt, const CoreParameter &coreParameter, GPUCore requestedGPUCore, bool graphicsContextWorking) {
 	std::ostringstream json;
 	json << "BENCH_META {";
 	json << "\"schema\":\"ppsspp_headless_bench_v1\"";
+	json << ",\"requested_gpu_backend\":\"" << GPUCoreToBenchName(requestedGPUCore) << "\"";
 	json << ",\"gpu_backend\":\"" << GPUCoreToBenchName(coreParameter.gpuCore) << "\"";
+	json << ",\"graphics_context_working\":" << (graphicsContextWorking ? "true" : "false");
 	json << ",\"cpu_core\":\"" << CPUCoreToBenchName(coreParameter.cpuCore) << "\"";
 	json << ",\"build_type\":\"" << BuildTypeToBenchName() << "\"";
 	json << ",\"compiler\":\"" << CompilerToBenchName() << "\"";
@@ -315,7 +317,7 @@ static void PrintBenchMeta(const AutoTestOptions &opt, const CoreParameter &core
 	printf("%s\n", json.str().c_str());
 }
 
-static void PrintBenchResult(const AutoTestOptions &opt, const CoreParameter &coreParameter, const BenchRunResult &result) {
+static void PrintBenchResult(const AutoTestOptions &opt, const CoreParameter &coreParameter, GPUCore requestedGPUCore, bool graphicsContextWorking, const BenchRunResult &result) {
 	const std::string testName = GetTestName(coreParameter.fileToStart);
 	const double avgSeconds = result.completedRuns > 0 ? result.totalSeconds / (double)result.completedRuns : 0.0;
 	const double runsPerSecond = result.totalSeconds > 0.0 ? (double)result.completedRuns / result.totalSeconds : 0.0;
@@ -325,7 +327,9 @@ static void PrintBenchResult(const AutoTestOptions &opt, const CoreParameter &co
 	json << "\"schema\":\"ppsspp_headless_bench_v1\"";
 	json << ",\"test_id\":\"" << JsonEscape(testName) << "\"";
 	json << ",\"test_file\":\"" << JsonEscape(coreParameter.fileToStart.ToString()) << "\"";
+	json << ",\"requested_gpu_backend\":\"" << GPUCoreToBenchName(requestedGPUCore) << "\"";
 	json << ",\"gpu_backend\":\"" << GPUCoreToBenchName(coreParameter.gpuCore) << "\"";
+	json << ",\"graphics_context_working\":" << (graphicsContextWorking ? "true" : "false");
 	json << ",\"cpu_core\":\"" << CPUCoreToBenchName(coreParameter.cpuCore) << "\"";
 	json << ",\"build_type\":\"" << BuildTypeToBenchName() << "\"";
 	json << ",\"compiler\":\"" << CompilerToBenchName() << "\"";
@@ -817,7 +821,7 @@ int main(int argc, const char* argv[])
 	std::vector<std::string> failedTests;
 	std::vector<std::string> passedTests;
 	if (testOptions.bench)
-		PrintBenchMeta(testOptions, coreParameter);
+		PrintBenchMeta(testOptions, coreParameter, gpuCore, glWorking);
 	for (size_t i = 0; i < testFilenames.size(); ++i)
 	{
 		coreParameter.fileToStart = Path(testFilenames[i]);
@@ -826,7 +830,7 @@ int main(int argc, const char* argv[])
 		if (testOptions.bench) {
 			BenchRunResult result = RunBenchmarks(headlessHost, coreParameter, testOptions);
 			std::string testName = GetTestName(coreParameter.fileToStart);
-			PrintBenchResult(testOptions, coreParameter, result);
+			PrintBenchResult(testOptions, coreParameter, gpuCore, glWorking, result);
 			if (result.success) {
 				passedTests.push_back(testName);
 			} else {
