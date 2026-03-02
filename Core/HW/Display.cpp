@@ -16,6 +16,7 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include <algorithm>
+#include <cinttypes>
 #include <cmath>
 #include <mutex>
 #include <vector>
@@ -23,6 +24,7 @@
 #include "Common/Serialize/SerializeFuncs.h"
 #include "Common/System/System.h"
 #include "Common/TimeUtil.h"
+#include "Common/Thread/ThreadManager.h"
 #include "Core/Config.h"
 #include "Core/System.h"
 #include "Core/CoreTiming.h"
@@ -193,16 +195,26 @@ void __DisplayGetDebugStats(char *stats, size_t bufsize) {
 		return;
 	}
 	gpu->GetStats(statbuf, sizeof(statbuf));
+	const ThreadManagerStats threadStats = g_threadManager.GetStats();
 
 	snprintf(stats, bufsize,
 		"Kernel processing time: %0.2f ms\n"
 		"Slowest syscall: %s : %0.2f ms\n"
-		"Most active syscall: %s : %0.2f ms\n%s",
+		"Most active syscall: %s : %0.2f ms",
 		kernelStats.msInSyscalls * 1000.0f,
 		kernelStats.slowestSyscallName ? kernelStats.slowestSyscallName : "(none)",
 		kernelStats.slowestSyscallTime * 1000.0f,
 		kernelStats.summedSlowestSyscallName ? kernelStats.summedSlowestSyscallName : "(none)",
-		kernelStats.summedSlowestSyscallTime * 1000.0f,
+		kernelStats.summedSlowestSyscallTime * 1000.0f);
+	snprintf(stats + strlen(stats), bufsize > strlen(stats) ? bufsize - strlen(stats) : 0,
+		"\nThread queue depth (compute/io): %d/%d\n"
+		"Thread queue max (compute/io): %d/%d\n"
+		"Thread dispatch private/global: %" PRIu64 "/%" PRIu64 "\n"
+		"Thread waits: %" PRIu64 " (%" PRIu64 " us)\n%s",
+		threadStats.computeQueueSize, threadStats.ioQueueSize,
+		threadStats.maxComputeQueueSize, threadStats.maxIOQueueSize,
+		threadStats.dispatchedToPrivate, threadStats.dispatchedToGlobal,
+		threadStats.workerWaits, threadStats.workerWaitTimeUs,
 		statbuf);
 }
 
