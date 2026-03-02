@@ -8,6 +8,7 @@
 #include <atomic>
 
 #include "Common/Log.h"
+#include "Common/TimeUtil.h"
 #include "Common/Thread/ThreadUtil.h"
 #include "Common/Thread/ThreadManager.h"
 
@@ -50,6 +51,7 @@ struct GlobalThreadContext {
 	std::atomic<uint64_t> dequeued_from_private;
 	std::atomic<uint64_t> dequeued_from_global;
 	std::atomic<uint64_t> worker_waits;
+	std::atomic<uint64_t> worker_wait_time_us;
 };
 
 struct TaskThreadContext {
@@ -77,6 +79,7 @@ ThreadManager::ThreadManager() : global_(new GlobalThreadContext()) {
 	global_->dequeued_from_private = 0;
 	global_->dequeued_from_global = 0;
 	global_->worker_waits = 0;
+	global_->worker_wait_time_us = 0;
 }
 
 ThreadManager::~ThreadManager() {
@@ -223,8 +226,11 @@ static void WorkerThreadFunc(GlobalThreadContext *global, TaskThreadContext *thr
 			bool wait = !thread->cancelled && !task && global_queue_size() == 0;
 
 			if (wait) {
+				const double waitStart = time_now_d();
 				global->worker_waits.fetch_add(1, std::memory_order_relaxed);
 				thread->cond.wait(lock);
+				const double waited = time_now_d() - waitStart;
+				global->worker_wait_time_us.fetch_add((uint64_t)(waited * 1000000.0), std::memory_order_relaxed);
 			}
 		}
 		// The task itself takes care of notifying anyone waiting on it. Not the
@@ -261,6 +267,7 @@ void ThreadManager::Init(int numRealCores, int numLogicalCoresPerCpu) {
 	global_->dequeued_from_private = 0;
 	global_->dequeued_from_global = 0;
 	global_->worker_waits = 0;
+	global_->worker_wait_time_us = 0;
 
 	numComputeThreads_ = std::min(numRealCores * numLogicalCoresPerCpu, MAX_CORES_TO_USE);
 	// Double it for the IO blocking threads.
@@ -386,6 +393,7 @@ ThreadManagerStats ThreadManager::GetStats() const {
 	stats.dequeuedFromPrivate = global_->dequeued_from_private.load(std::memory_order_relaxed);
 	stats.dequeuedFromGlobal = global_->dequeued_from_global.load(std::memory_order_relaxed);
 	stats.workerWaits = global_->worker_waits.load(std::memory_order_relaxed);
+	stats.workerWaitTimeUs = global_->worker_wait_time_us.load(std::memory_order_relaxed);
 	return stats;
 }
 

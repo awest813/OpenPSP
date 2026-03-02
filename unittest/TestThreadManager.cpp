@@ -157,6 +157,7 @@ bool TestThreadManager() {
 	EXPECT_TRUE(stats.dispatchedToPrivate + stats.dispatchedToGlobal > 0);
 	EXPECT_TRUE(stats.dequeuedFromPrivate + stats.dequeuedFromGlobal > 0);
 	EXPECT_TRUE(stats.workerWaits > 0);
+	EXPECT_TRUE(stats.workerWaitTimeUs > 0);
 
 	return true;
 }

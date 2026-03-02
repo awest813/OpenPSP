@@ -60,6 +60,7 @@ struct ThreadManagerStats {
 	uint64_t dequeuedFromPrivate = 0;
 	uint64_t dequeuedFromGlobal = 0;
 	uint64_t workerWaits = 0;
+	uint64_t workerWaitTimeUs = 0;
 };
 
 class ThreadManager {
