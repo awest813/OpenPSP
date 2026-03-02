@@ -177,6 +177,21 @@ def detect_backend_fallbacks(rows):
       })
   return fallbacks
 
+def detect_cpu_fallbacks(rows):
+  fallbacks = []
+  for row in rows:
+    requested = row.get("requested_cpu_core")
+    actual = row.get("cpu_core")
+    if requested and requested != "default" and actual and requested != actual:
+      fallbacks.append({
+        "profile_id": row.get("profile_id"),
+        "requested_test": row.get("requested_test"),
+        "test_id": row.get("test_id"),
+        "requested_cpu_core": requested,
+        "actual_cpu_core": actual,
+      })
+  return fallbacks
+
 
 def main():
   parser = argparse.ArgumentParser(description="Run PPSSPP benchmark profiles and generate report")
@@ -222,6 +237,7 @@ def main():
 
   rows = collect_rows(profile_results)
   combined["backend_fallbacks"] = detect_backend_fallbacks(rows)
+  combined["cpu_fallbacks"] = detect_cpu_fallbacks(rows)
 
   ensure_directory(args.output)
   with open(args.output, "w") as f:
@@ -230,6 +246,8 @@ def main():
   print("Wrote combined report to {}".format(args.output))
   if combined["backend_fallbacks"]:
     print("Detected {} backend fallback sample(s).".format(len(combined["backend_fallbacks"])))
+  if combined["cpu_fallbacks"]:
+    print("Detected {} CPU fallback sample(s).".format(len(combined["cpu_fallbacks"])))
   if args.csv_output:
     write_csv_report(args.csv_output, rows)
     print("Wrote CSV report to {}".format(args.csv_output))

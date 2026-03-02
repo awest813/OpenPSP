@@ -48,6 +48,9 @@ The generated JSON includes:
 - `results`: per-test benchmark samples (`BENCH_RESULT`)
 - `meta`: per-run environment metadata (`BENCH_META`)
 - both sections include `requested_gpu_backend` and `requested_cpu_core` so fallback/override behavior is visible in reports
+- combined reports include:
+  - `backend_fallbacks` (`requested_gpu_backend` vs `gpu_backend`)
+  - `cpu_fallbacks` (`requested_cpu_core` vs `cpu_core`)
 
 Select tests manually:
 
