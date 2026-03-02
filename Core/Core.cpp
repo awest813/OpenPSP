@@ -248,8 +248,10 @@ void Core_RunLoopUntil(u64 globalticks) {
 // Should only be called from GPUCommon functions (called from sceGe functions).
 void Core_SwitchToGe() {
 	// TODO: This should be an atomic exchange. Or we add bitflags into coreState.
-	preGeCoreState = coreState;
-	coreState = CORE_RUNNING_GE;
+	if (coreState != CORE_RUNNING_GE) {
+		preGeCoreState = coreState;
+		coreState = CORE_RUNNING_GE;
+	}
 }
 
 bool Core_RequestCPUStep(CPUStepType type, int stepSize) {
