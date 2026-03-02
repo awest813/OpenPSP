@@ -144,6 +144,20 @@ enum {
 static int lastFlipsTooFrequent = 0;
 static u64 lastFlipCycles = 0;
 static u64 nextFlipCycles = 0;
+static float cachedDisplayRefreshRate = 60.0f;
+static double displayRefreshRatePollTime = 0.0;
+
+static float GetDisplayRefreshRateCached() {
+	const double now = time_now_d();
+	if (displayRefreshRatePollTime == 0.0 || now - displayRefreshRatePollTime >= 1.0) {
+		cachedDisplayRefreshRate = System_GetPropertyFloat(SYSPROP_DISPLAY_REFRESH_RATE);
+		if (cachedDisplayRefreshRate <= 1.0f) {
+			cachedDisplayRefreshRate = 60.0f;
+		}
+		displayRefreshRatePollTime = now;
+	}
+	return cachedDisplayRefreshRate;
+}
 
 void hleEnterVblank(u64 userdata, int cyclesLate);
 void hleLeaveVblank(u64 userdata, int cyclesLate);
@@ -198,6 +212,8 @@ void __DisplayInit() {
 	lastFlipsTooFrequent = 0;
 	lastFlipCycles = 0;
 	nextFlipCycles = 0;
+	cachedDisplayRefreshRate = 60.0f;
+	displayRefreshRatePollTime = 0.0;
 	wasPaused = false;
 
 	enterVblankEvent = CoreTiming::RegisterEvent("EnterVBlank", &hleEnterVblank);
@@ -626,7 +642,7 @@ void __DisplayFlip(int cyclesLate) {
 	NotifyUserIfSlow();
 
 	bool forceNoFlip = false;
-	float refreshRate = System_GetPropertyFloat(SYSPROP_DISPLAY_REFRESH_RATE);
+	float refreshRate = GetDisplayRefreshRateCached();
 	// Avoid skipping on devices that have 58 or 59 FPS, except when alternate speed is set.
 	const double fpsLimit = FrameTimingLimit();
 	bool throttle = fpsLimit != 0.0;
