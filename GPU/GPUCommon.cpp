@@ -932,7 +932,8 @@ void GPUCommon::Execute_Call(u32 op, u32 diff) {
 	const u32 target = gstate_c.getRelativeAddress(op & 0x00FFFFFC);
 	if (!Memory::IsValidAddress(target)) {
 		ERROR_LOG(Log::G3D, "CALL to illegal address %08x - ignoring! data=%06x", target, op & 0x00FFFFFF);
-		if (g_Config.bIgnoreBadMemAccess) {
+		const auto gpuSettings = g_Config.GetRuntimeGPUExecutionSettings();
+		if (gpuSettings.ignoreBadMemAccess) {
 			return;
 		}
 		UpdateState(GPUSTATE_ERROR);
@@ -1385,7 +1386,8 @@ void GPUCommon::FastLoadBoneMatrix(u32 target) {
 		uniformsToDirty |= DIRTY_BONEMATRIX0 << ((mtxNum + 1) & 7);
 	}
 
-	if (!g_Config.bSoftwareSkinning) {
+	const auto gpuSettings = g_Config.GetRuntimeGPUExecutionSettings();
+	if (!gpuSettings.softwareSkinning) {
 		if (flushOnParams_) {
 			Flush();
 		}

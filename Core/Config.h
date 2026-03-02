@@ -203,6 +203,10 @@ public:
 		bool softwareSkinning;
 		int depthRasterMode;
 	};
+	struct RuntimeGPUExecutionSettings {
+		bool ignoreBadMemAccess;
+		bool softwareSkinning;
+	};
 
 	~Config();
 
@@ -250,6 +254,12 @@ public:
 			bHardwareTessellation,
 			bSoftwareSkinning,
 			iDepthRasterMode,
+		};
+	}
+	RuntimeGPUExecutionSettings GetRuntimeGPUExecutionSettings() const {
+		return RuntimeGPUExecutionSettings{
+			bIgnoreBadMemAccess,
+			bSoftwareSkinning,
 		};
 	}
 
