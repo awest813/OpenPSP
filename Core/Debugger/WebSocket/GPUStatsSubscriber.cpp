@@ -15,6 +15,7 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include <algorithm>
 #include <mutex>
 #include <vector>
 #include "Core/Debugger/WebSocket/GPUStatsSubscriber.h"
@@ -129,8 +130,8 @@ void WebSocketGPUStatsState::FlipListener() {
 	stats.frameTimes.resize(valid);
 	stats.sleepTimes.resize(valid);
 	if (valid > 0) {
-		memcpy(&stats.frameTimes[0], history, sizeof(double) * valid);
-		memcpy(&stats.sleepTimes[0], sleepHistory, sizeof(double) * valid);
+		std::copy_n(history, valid, stats.frameTimes.begin());
+		std::copy_n(sleepHistory, valid, stats.sleepTimes.begin());
 	}
 
 	sendNext_ = false;
