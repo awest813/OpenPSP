@@ -66,3 +66,17 @@ Run software + GLES candidates and keep going if one profile is unavailable:
 ```bash
 python3 Tools/perf/bench_runner.py --profile ci-software --profile ci-gles --bench-runs 10 --bench-repetitions 1 --continue-on-profile-error --output perf-report-ci.json --csv-output perf-report-ci.csv
 ```
+
+## Comparing two reports
+
+Create a baseline and candidate report, then compare:
+
+```bash
+python3 Tools/perf/compare_reports.py --baseline perf-report-baseline.json --candidate perf-report-candidate.json
+```
+
+Optionally fail on regressions beyond tolerance bands:
+
+```bash
+python3 Tools/perf/compare_reports.py --baseline perf-report-baseline.json --candidate perf-report-candidate.json --max-avg-seconds-regression-pct 5 --max-rps-regression-pct 5
+```
