@@ -364,6 +364,12 @@ static std::vector<std::pair<u32, int>> pendingClears;
 
 void MIPSState::ProcessPendingClears() {
 	std::lock_guard<std::recursive_mutex> guard(MIPSComp::jitLock);
+	if (!MIPSComp::jit) {
+		pendingClears.clear();
+		hasPendingClears = false;
+		return;
+	}
+
 	const bool clearAll = std::find(pendingClears.begin(), pendingClears.end(), std::pair<u32, int>{0, 0}) != pendingClears.end();
 	if (clearAll) {
 		MIPSComp::jit->ClearCache();
