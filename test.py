@@ -603,6 +603,7 @@ def run_benchmarks(test_list, args, bench_runs, bench_repetitions, bench_output)
   global PPSSPP_EXE, TIMEOUT
   returncode = 0
   bench_results = []
+  bench_meta_records = []
   headless_args = [i for i in args if i not in ['-g', '-m', '-b']]
 
   for test in test_list:
@@ -629,9 +630,13 @@ def run_benchmarks(test_list, args, bench_runs, bench_repetitions, bench_output)
       if output:
         sys.stdout.write(output)
 
+      bench_meta = None
       bench_result = None
       if output:
         for line in output.splitlines():
+          meta = parse_bench_record(line, "BENCH_META ")
+          if meta is not None:
+            bench_meta = meta
           parsed = parse_bench_record(line, "BENCH_RESULT ")
           if parsed is not None:
             bench_result = parsed
@@ -643,6 +648,10 @@ def run_benchmarks(test_list, args, bench_runs, bench_repetitions, bench_output)
         bench_result["requested_test"] = test
         bench_result["repetition"] = repetition + 1
         bench_results.append(bench_result)
+        if bench_meta is not None:
+          bench_meta["requested_test"] = test
+          bench_meta["repetition"] = repetition + 1
+          bench_meta_records.append(bench_meta)
 
       if process.returncode != 0 and returncode == 0:
         returncode = process.returncode
@@ -667,6 +676,7 @@ def run_benchmarks(test_list, args, bench_runs, bench_repetitions, bench_output)
       "schema": "ppsspp_testpy_bench_v1",
       "bench_runs": bench_runs,
       "bench_repetitions": bench_repetitions,
+      "meta": bench_meta_records,
       "results": bench_results,
     }
     output_dir = os.path.dirname(bench_output)

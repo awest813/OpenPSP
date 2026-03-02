@@ -36,6 +36,10 @@ Run with explicit run counts and save JSON:
 python3 test.py --bench --bench-runs=30 --bench-repetitions=2 --bench-output=perf-report-software.json --graphics=software -j
 ```
 
+The generated JSON includes:
+- `results`: per-test benchmark samples (`BENCH_RESULT`)
+- `meta`: per-run environment metadata (`BENCH_META`)
+
 Select tests manually:
 
 ```bash
@@ -47,7 +51,7 @@ python3 test.py --bench cpu/cpu_alu/cpu_alu gpu/primitives/triangles --graphics=
 Run all configured profiles and generate one combined report:
 
 ```bash
-python3 Tools/perf/bench_runner.py --output perf-report.json
+python3 Tools/perf/bench_runner.py --output perf-report.json --csv-output perf-report.csv
 ```
 
 Run only the CI profile with reduced cost:

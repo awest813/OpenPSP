@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import argparse
+import csv
 import json
 import os
 import subprocess
@@ -82,11 +83,73 @@ def summarize(profile_results):
       }
   return summary
 
+def collect_rows(profile_results):
+  rows = []
+  for profile_result in profile_results:
+    report = profile_result.get("report") or {}
+    meta_records = report.get("meta", [])
+    meta_by_key = {}
+    for meta in meta_records:
+      key = (meta.get("requested_test"), meta.get("repetition"))
+      meta_by_key[key] = meta
+
+    for result in report.get("results", []):
+      key = (result.get("requested_test"), result.get("repetition"))
+      meta = meta_by_key.get(key, {})
+      rows.append({
+        "profile_id": profile_result["id"],
+        "requested_test": result.get("requested_test"),
+        "test_id": result.get("test_id"),
+        "repetition": result.get("repetition"),
+        "requested_runs": result.get("requested_runs"),
+        "completed_runs": result.get("completed_runs"),
+        "successful_runs": result.get("successful_runs"),
+        "avg_seconds": result.get("avg_seconds"),
+        "runs_per_second": result.get("runs_per_second"),
+        "total_seconds": result.get("total_seconds"),
+        "success": result.get("success"),
+        "gpu_backend": meta.get("gpu_backend", result.get("gpu_backend")),
+        "cpu_core": meta.get("cpu_core", result.get("cpu_core")),
+        "platform": meta.get("platform", result.get("platform")),
+        "arch": meta.get("arch", result.get("arch")),
+        "compiler": meta.get("compiler", result.get("compiler")),
+        "build_type": meta.get("build_type", result.get("build_type")),
+      })
+  return rows
+
+def write_csv_report(path, rows):
+  ensure_directory(path)
+  fieldnames = [
+    "profile_id",
+    "requested_test",
+    "test_id",
+    "repetition",
+    "requested_runs",
+    "completed_runs",
+    "successful_runs",
+    "avg_seconds",
+    "runs_per_second",
+    "total_seconds",
+    "success",
+    "gpu_backend",
+    "cpu_core",
+    "platform",
+    "arch",
+    "compiler",
+    "build_type",
+  ]
+  with open(path, "w", newline="") as f:
+    writer = csv.DictWriter(f, fieldnames=fieldnames)
+    writer.writeheader()
+    for row in rows:
+      writer.writerow(row)
+
 
 def main():
   parser = argparse.ArgumentParser(description="Run PPSSPP benchmark profiles and generate report")
   parser.add_argument("--config", default=DEFAULT_CONFIG, help="Benchmark config JSON path")
   parser.add_argument("--output", default=DEFAULT_OUTPUT, help="Combined output report path")
+  parser.add_argument("--csv-output", default=None, help="Optional CSV output path for per-run benchmark rows")
   parser.add_argument("--profile", action="append", default=[], help="Profile id to run (repeatable)")
   parser.add_argument("--bench-runs", type=int, default=None, help="Override bench run count")
   parser.add_argument("--bench-repetitions", type=int, default=None, help="Override bench repetitions")
@@ -126,6 +189,10 @@ def main():
     json.dump(combined, f, indent=2, sort_keys=True)
 
   print("Wrote combined report to {}".format(args.output))
+  if args.csv_output:
+    rows = collect_rows(profile_results)
+    write_csv_report(args.csv_output, rows)
+    print("Wrote CSV report to {}".format(args.csv_output))
   return overall_returncode
 
 
