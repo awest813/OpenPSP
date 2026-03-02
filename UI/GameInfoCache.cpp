@@ -1121,8 +1121,9 @@ std::shared_ptr<GameInfo> GameInfoCache::GetInfo(Draw::DrawContext *draw, const 
 			// Careful now!
 			std::unique_lock<std::mutex> lock(info->lock);
 			if (refetchFlags != GameInfoFlags::EMPTY) {
-				// Forget some flags!
+				// Forget some flags, and cancel equivalent pending work so we can enqueue a fresh request.
 				info->hasFlags &= ~refetchFlags;
+				info->pendingFlags &= ~refetchFlags;
 			}
 			GameInfoFlags willHaveFlags = info->hasFlags | info->pendingFlags;  // We don't want to re-fetch data that we have, so or in pendingFlags.
 			wanted = (GameInfoFlags)((int)wantFlags & ~(int)willHaveFlags);  // & is reserved for testing so we have to cast to int. ugh.
