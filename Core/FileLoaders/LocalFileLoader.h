@@ -53,5 +53,8 @@ private:
 	u64 filesize_ = 0;
 	Path filename_;
 	std::mutex readLock_;
+	std::mutex infoCacheLock_;
+	int existsCache_ = -1;
+	int isDirectoryCache_ = -1;
 	bool isOpenedByFd_ = false;
 };

@@ -133,30 +133,84 @@ LocalFileLoader::~LocalFileLoader() {
 }
 
 bool LocalFileLoader::Exists() {
+	{
+		std::lock_guard<std::mutex> guard(infoCacheLock_);
+		if (existsCache_ != -1) {
+			return existsCache_ == 1;
+		}
+	}
+
 	// If we opened it for reading, it must exist.  Done.
 #if defined(HAVE_LIBRETRO_VFS)
-	return file_ != nullptr;
+	if (file_ != nullptr) {
+		std::lock_guard<std::mutex> guard(infoCacheLock_);
+		existsCache_ = 1;
+		isDirectoryCache_ = 0;
+		return true;
+	}
 #elif !defined(_WIN32)
 	if (isOpenedByFd_) {
 		// As an optimization, if we already tried and failed, quickly return.
 		// This is used because Android Content URIs are so slow.
-		return fd_ != -1;
+		const bool exists = fd_ != -1;
+		std::lock_guard<std::mutex> guard(infoCacheLock_);
+		existsCache_ = exists ? 1 : 0;
+		if (exists) {
+			isDirectoryCache_ = 0;
+		}
+		return exists;
 	}
-	if (fd_ != -1)
+	if (fd_ != -1) {
+		std::lock_guard<std::mutex> guard(infoCacheLock_);
+		existsCache_ = 1;
+		isDirectoryCache_ = 0;
 		return true;
+	}
 #else
-	if (handle_ != INVALID_HANDLE_VALUE)
+	if (handle_ != INVALID_HANDLE_VALUE) {
+		std::lock_guard<std::mutex> guard(infoCacheLock_);
+		existsCache_ = 1;
+		isDirectoryCache_ = 0;
 		return true;
+	}
 #endif
 
-	return File::Exists(filename_);
+	File::FileInfo info;
+	if (File::GetFileInfo(filename_, &info)) {
+		std::lock_guard<std::mutex> guard(infoCacheLock_);
+		existsCache_ = info.exists ? 1 : 0;
+		isDirectoryCache_ = info.exists ? (info.isDirectory ? 1 : 0) : -1;
+		return info.exists;
+	}
+
+	const bool exists = File::Exists(filename_);
+	std::lock_guard<std::mutex> guard(infoCacheLock_);
+	existsCache_ = exists ? 1 : 0;
+	return exists;
 }
 
 bool LocalFileLoader::IsDirectory() {
+	{
+		std::lock_guard<std::mutex> guard(infoCacheLock_);
+		if (isDirectoryCache_ != -1) {
+			return isDirectoryCache_ == 1;
+		}
+		if (existsCache_ == 0) {
+			return false;
+		}
+	}
+
 	File::FileInfo info;
 	if (File::GetFileInfo(filename_, &info)) {
-		return info.exists && info.isDirectory;
+		const bool isDirectory = info.exists && info.isDirectory;
+		std::lock_guard<std::mutex> guard(infoCacheLock_);
+		existsCache_ = info.exists ? 1 : 0;
+		isDirectoryCache_ = isDirectory ? 1 : 0;
+		return isDirectory;
 	}
+
+	std::lock_guard<std::mutex> guard(infoCacheLock_);
+	isDirectoryCache_ = 0;
 	return false;
 }
 
