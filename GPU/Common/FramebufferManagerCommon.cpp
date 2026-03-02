@@ -677,7 +677,10 @@ struct CopySource {
 // or to use image copies when possible (which may make it easier for the driver to preserve early-Z, but on the other hand, will cost additional memory
 // bandwidth on tilers due to the load operation, which we might otherwise be able to skip).
 void FramebufferManagerCommon::CopyToDepthFromOverlappingFramebuffers(VirtualFramebuffer *dest) {
-	std::vector<CopySource> sources;
+	CopySource bestSource{};
+	int bestSeq = dest->depthBindSeq;
+	bool foundSource = false;
+
 	for (auto src : vfbs_) {
 		if (src == dest)
 			continue;
@@ -685,27 +688,27 @@ void FramebufferManagerCommon::CopyToDepthFromOverlappingFramebuffers(VirtualFra
 		if (src->fb_address == dest->z_address && src->fb_stride == dest->z_stride && src->fb_format == GE_FORMAT_565) {
 			if (src->colorBindSeq > dest->depthBindSeq) {
 				// Source has newer data than the current buffer, use it.
-				sources.push_back(CopySource{ src, RASTER_COLOR, 0, 0 });
+				if (src->colorBindSeq > bestSeq) {
+					bestSource = CopySource{ src, RASTER_COLOR, 0, 0 };
+					bestSeq = src->colorBindSeq;
+					foundSource = true;
+				}
 			}
 		} else if (src->z_address == dest->z_address && src->z_stride == dest->z_stride && src->depthBindSeq > dest->depthBindSeq) {
-			sources.push_back(CopySource{ src, RASTER_DEPTH, 0, 0 });
+			if (src->depthBindSeq > bestSeq) {
+				bestSource = CopySource{ src, RASTER_DEPTH, 0, 0 };
+				bestSeq = src->depthBindSeq;
+				foundSource = true;
+			}
 		} else {
 			// TODO: Do more detailed overlap checks here.
 		}
 	}
 
-	std::sort(sources.begin(), sources.end());
-
-	// TODO: A full copy will overwrite anything else. So we can eliminate
-	// anything that comes before such a copy.
-
-	// For now, let's just do the last thing, if there are multiple.
-
-	// for (auto &source : sources) {
-	if (!sources.empty()) {
+	if (foundSource) {
 		draw_->Invalidate(InvalidationFlags::CACHED_RENDER_STATE);
 
-		auto &source = sources.back();
+		auto &source = bestSource;
 		if (source.channel == RASTER_DEPTH) {
 			// Good old depth->depth copy.
 			BlitFramebufferDepth(source.vfb, dest);
