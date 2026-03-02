@@ -74,12 +74,22 @@ def summarize(profile_results):
   summary = {}
   for profile_result in profile_results:
     report = profile_result.get("report") or {}
+    grouped = {}
     for result in report.get("results", []):
       key = "{}::{}".format(profile_result["id"], result.get("test_id", result.get("requested_test", "unknown")))
+      grouped.setdefault(key, []).append(result)
+
+    for key, samples in grouped.items():
+      count = float(len(samples))
       summary[key] = {
-        "avg_seconds": result.get("avg_seconds"),
-        "runs_per_second": result.get("runs_per_second"),
-        "completed_runs": result.get("completed_runs"),
+        "avg_seconds": sum(float(sample.get("avg_seconds", 0.0)) for sample in samples) / count,
+        "runs_per_second": sum(float(sample.get("runs_per_second", 0.0)) for sample in samples) / count,
+        "completed_runs": int(sum(int(sample.get("completed_runs", 0)) for sample in samples) / count),
+        "thread_enqueued_delta": sum(float(sample.get("thread_enqueued_delta", 0.0)) for sample in samples) / count,
+        "thread_dispatched_private_delta": sum(float(sample.get("thread_dispatched_private_delta", 0.0)) for sample in samples) / count,
+        "thread_dispatched_global_delta": sum(float(sample.get("thread_dispatched_global_delta", 0.0)) for sample in samples) / count,
+        "thread_worker_waits_delta": sum(float(sample.get("thread_worker_waits_delta", 0.0)) for sample in samples) / count,
+        "thread_worker_wait_time_us_delta": sum(float(sample.get("thread_worker_wait_time_us_delta", 0.0)) for sample in samples) / count,
       }
   return summary
 

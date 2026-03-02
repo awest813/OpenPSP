@@ -18,6 +18,8 @@ def flatten_summary(report):
       "avg_seconds": float(values.get("avg_seconds", 0.0)),
       "runs_per_second": float(values.get("runs_per_second", 0.0)),
       "completed_runs": int(values.get("completed_runs", 0)),
+      "thread_enqueued_delta": float(values.get("thread_enqueued_delta", 0.0)),
+      "thread_worker_wait_time_us_delta": float(values.get("thread_worker_wait_time_us_delta", 0.0)),
     }
   return flattened
 
@@ -40,6 +42,8 @@ def main():
   parser.add_argument("--candidate", required=True, help="Candidate perf-report JSON")
   parser.add_argument("--max-avg-seconds-regression-pct", type=float, default=None, help="Fail if avg_seconds regression exceeds this percent")
   parser.add_argument("--max-rps-regression-pct", type=float, default=None, help="Fail if runs_per_second regression exceeds this percent")
+  parser.add_argument("--max-thread-enqueued-regression-pct", type=float, default=None, help="Fail if thread_enqueued_delta regression exceeds this percent")
+  parser.add_argument("--max-thread-wait-us-regression-pct", type=float, default=None, help="Fail if thread_worker_wait_time_us_delta regression exceeds this percent")
   parser.add_argument("--max-backend-fallback-increase", type=int, default=None, help="Fail if backend fallback sample count increases by more than this value")
   parser.add_argument("--max-cpu-fallback-increase", type=int, default=None, help="Fail if CPU fallback sample count increases by more than this value")
   args = parser.parse_args()
@@ -71,7 +75,9 @@ def main():
       cand = candidate[key]
       avg_delta_pct = percent_change(base["avg_seconds"], cand["avg_seconds"])
       rps_delta_pct = percent_change(base["runs_per_second"], cand["runs_per_second"])
-      print("  {}: avg_seconds {:+.2f}% ({:.6f} -> {:.6f}), runs_per_second {:+.2f}% ({:.3f} -> {:.3f})".format(
+      enqueued_delta_pct = percent_change(base["thread_enqueued_delta"], cand["thread_enqueued_delta"])
+      wait_us_delta_pct = percent_change(base["thread_worker_wait_time_us_delta"], cand["thread_worker_wait_time_us_delta"])
+      print("  {}: avg_seconds {:+.2f}% ({:.6f} -> {:.6f}), runs_per_second {:+.2f}% ({:.3f} -> {:.3f}), thread_enqueued_delta {:+.2f}% ({:.3f} -> {:.3f}), thread_wait_us_delta {:+.2f}% ({:.3f} -> {:.3f})".format(
         key,
         avg_delta_pct,
         base["avg_seconds"],
@@ -79,6 +85,12 @@ def main():
         rps_delta_pct,
         base["runs_per_second"],
         cand["runs_per_second"],
+        enqueued_delta_pct,
+        base["thread_enqueued_delta"],
+        cand["thread_enqueued_delta"],
+        wait_us_delta_pct,
+        base["thread_worker_wait_time_us_delta"],
+        cand["thread_worker_wait_time_us_delta"],
       ))
 
       if args.max_avg_seconds_regression_pct is not None and avg_delta_pct > args.max_avg_seconds_regression_pct:
@@ -86,6 +98,12 @@ def main():
         failed = True
       if args.max_rps_regression_pct is not None and (-rps_delta_pct) > args.max_rps_regression_pct:
         print("    REGRESSION: runs_per_second delta {:+.2f}% exceeds -{:.2f}%".format(rps_delta_pct, args.max_rps_regression_pct))
+        failed = True
+      if args.max_thread_enqueued_regression_pct is not None and enqueued_delta_pct > args.max_thread_enqueued_regression_pct:
+        print("    REGRESSION: thread_enqueued_delta {:+.2f}% exceeds +{:.2f}%".format(enqueued_delta_pct, args.max_thread_enqueued_regression_pct))
+        failed = True
+      if args.max_thread_wait_us_regression_pct is not None and wait_us_delta_pct > args.max_thread_wait_us_regression_pct:
+        print("    REGRESSION: thread_worker_wait_time_us_delta {:+.2f}% exceeds +{:.2f}%".format(wait_us_delta_pct, args.max_thread_wait_us_regression_pct))
         failed = True
 
   baseline_backend_fallbacks = fallback_count(baseline_report, "backend_fallbacks")

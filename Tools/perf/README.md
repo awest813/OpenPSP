@@ -91,3 +91,9 @@ Optionally fail on regressions beyond tolerance bands:
 ```bash
 python3 Tools/perf/compare_reports.py --baseline perf-report-baseline.json --candidate perf-report-candidate.json --max-avg-seconds-regression-pct 5 --max-rps-regression-pct 5 --max-backend-fallback-increase 0 --max-cpu-fallback-increase 0
 ```
+
+Thread scheduler pressure can also be guarded:
+
+```bash
+python3 Tools/perf/compare_reports.py --baseline perf-report-baseline.json --candidate perf-report-candidate.json --max-thread-enqueued-regression-pct 10 --max-thread-wait-us-regression-pct 10
+```
