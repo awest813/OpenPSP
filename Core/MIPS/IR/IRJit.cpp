@@ -255,6 +255,7 @@ void IRBlockCache::Clear() {
 	}
 	blocks_.clear();
 	byPage_.clear();
+	byNativeOffset_.clear();
 	arena_.clear();
 	arena_.shrink_to_fit();
 }
@@ -351,6 +352,9 @@ void IRBlockCache::FinalizeBlock(int blockIndex) {
 	IRBlock &block = blocks_[blockIndex];
 	int cookie = compileToNative_ ? block.GetNativeOffset() : block.GetIRArenaOffset();
 	block.Finalize(cookie);
+	if (compileToNative_ && cookie >= 0) {
+		byNativeOffset_[cookie] = blockIndex;
+	}
 
 	u32 startAddr, size;
 	block.GetRange(&startAddr, &size);
@@ -371,6 +375,15 @@ void IRBlockCache::FinalizeBlock(int blockIndex) {
 void IRBlockCache::RemoveBlockFromPageLookup(int blockIndex) {
 	// We need to remove the block from the byPage lookup.
 	IRBlock &block = blocks_[blockIndex];
+	if (compileToNative_) {
+		const int nativeOffset = block.GetNativeOffset();
+		if (nativeOffset >= 0) {
+			auto nativeIt = byNativeOffset_.find(nativeOffset);
+			if (nativeIt != byNativeOffset_.end() && nativeIt->second == blockIndex) {
+				byNativeOffset_.erase(nativeIt);
+			}
+		}
+	}
 
 	u32 startAddr, size;
 	block.GetRange(&startAddr, &size);
@@ -449,11 +462,21 @@ int IRBlockCache::FindByCookie(int cookie) {
 		return GetBlockNumFromIRArenaOffset(cookie);
 	}
 
-	// TODO: This could also use a binary search.
+	auto nativeIt = byNativeOffset_.find(cookie);
+	if (nativeIt != byNativeOffset_.end()) {
+		const int blockIndex = nativeIt->second;
+		if (blockIndex >= 0 && blockIndex < GetNumBlocks() && blocks_[blockIndex].GetNativeOffset() == cookie) {
+			return blockIndex;
+		}
+		byNativeOffset_.erase(nativeIt);
+	}
+
+	// Fallback for stale cache or legacy entries, then repair the map.
 	for (int i = 0; i < GetNumBlocks(); ++i) {
-		int offset = blocks_[i].GetNativeOffset();
-		if (offset == cookie)
+		if (blocks_[i].GetNativeOffset() == cookie) {
+			byNativeOffset_[cookie] = i;
 			return i;
+		}
 	}
 	return -1;
 }

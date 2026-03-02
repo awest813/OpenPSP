@@ -201,6 +201,7 @@ private:
 	std::vector<IRBlock> blocks_;
 	std::vector<IRInst> arena_;
 	std::unordered_map<u32, std::vector<int>> byPage_;
+	std::unordered_map<int, int> byNativeOffset_;
 };
 
 class IRJit : public JitInterface {
