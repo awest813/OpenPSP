@@ -1,5 +1,6 @@
 #include <cstdio>
 #include <algorithm>
+#include <limits>
 #include <thread>
 #include <deque>
 #include <condition_variable>
@@ -318,13 +319,20 @@ void ThreadManager::EnqueueTask(Task *task) {
 	_assert_(threadRange > 0);
 	const int roundRobinSeed = global_->roundRobin.fetch_add(1, std::memory_order_relaxed);
 	const int startThread = minThread + (roundRobinSeed % threadRange);
+	int bestThread = -1;
+	int bestQueueSize = std::numeric_limits<int>::max();
 
 	// Find a thread with no outstanding work.
 	_assert_(maxThread <= (int)global_->threads_.size());
 	for (int i = 0; i < threadRange; ++i) {
 		int threadNum = minThread + ((startThread - minThread + i) % threadRange);
 		TaskThreadContext *thread = global_->threads_[threadNum];
-		if (thread->queue_size.load() == 0) {
+		const int queueSize = thread->queue_size.load(std::memory_order_relaxed);
+		if (queueSize < bestQueueSize) {
+			bestQueueSize = queueSize;
+			bestThread = threadNum;
+		}
+		if (queueSize == 0) {
 			std::unique_lock<std::mutex> lock(thread->mutex);
 			thread->private_queue[queueIndex].push_back(task);
 			thread->queue_size++;
@@ -335,8 +343,18 @@ void ThreadManager::EnqueueTask(Task *task) {
 		}
 	}
 
-	// Still not scheduled? Put it on the global queue and notify a thread chosen by round-robin.
-	// Not particularly scientific, but hopefully we should not run into this too much.
+	// No idle thread was found. Queue directly on the least busy thread to reduce contention on the global queue.
+	if (bestThread >= 0) {
+		TaskThreadContext *thread = global_->threads_[bestThread];
+		std::unique_lock<std::mutex> lock(thread->mutex);
+		thread->private_queue[queueIndex].push_back(task);
+		thread->queue_size++;
+		global_->dispatched_to_private.fetch_add(1, std::memory_order_relaxed);
+		thread->cond.notify_one();
+		return;
+	}
+
+	// Fallback: Put it on the global queue and notify a thread chosen by round-robin.
 	{
 		std::unique_lock<std::mutex> lock(global_->mutex);
 		if (task->Type() == TaskType::CPU_COMPUTE) {
