@@ -1653,6 +1653,9 @@ std::vector<GPUDebugOp> GPUCommon::DisassembleOpRange(u32 startpc, u32 endpc) {
 	char buffer[1024];
 	std::vector<GPUDebugOp> result;
 	GPUDebugOp info;
+	if (endpc <= startpc) {
+		return result;
+	}
 
 	// Don't trigger a pause.
 	u32 prev = Memory::IsValidAddress(startpc - 4) ? Memory::Read_U32(startpc - 4) : 0;
