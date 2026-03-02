@@ -100,6 +100,7 @@ def collect_rows(profile_results):
         "profile_id": profile_result["id"],
         "requested_test": result.get("requested_test"),
         "test_id": result.get("test_id"),
+        "requested_gpu_backend": result.get("requested_gpu_backend", meta.get("requested_gpu_backend")),
         "repetition": result.get("repetition"),
         "requested_runs": result.get("requested_runs"),
         "completed_runs": result.get("completed_runs"),
@@ -123,6 +124,7 @@ def write_csv_report(path, rows):
     "profile_id",
     "requested_test",
     "test_id",
+    "requested_gpu_backend",
     "repetition",
     "requested_runs",
     "completed_runs",
@@ -153,6 +155,7 @@ def main():
   parser.add_argument("--profile", action="append", default=[], help="Profile id to run (repeatable)")
   parser.add_argument("--bench-runs", type=int, default=None, help="Override bench run count")
   parser.add_argument("--bench-repetitions", type=int, default=None, help="Override bench repetitions")
+  parser.add_argument("--continue-on-profile-error", action="store_true", help="Continue and return success even if one profile fails")
   args = parser.parse_args()
 
   config = load_config(args.config)
@@ -171,8 +174,10 @@ def main():
   for profile in profiles:
     profile_result = run_profile(args.config, profile, bench_runs, repetitions)
     profile_results.append(profile_result)
-    if profile_result["returncode"] != 0:
+    if profile_result["returncode"] != 0 and not args.continue_on_profile_error:
       overall_returncode = profile_result["returncode"]
+    elif profile_result["returncode"] != 0:
+      print("Profile '{}' failed with return code {}, continuing.".format(profile_result["id"], profile_result["returncode"]))
 
   combined = {
     "schema": "ppsspp_perf_report_v1",

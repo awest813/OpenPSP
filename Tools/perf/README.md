@@ -39,6 +39,7 @@ python3 test.py --bench --bench-runs=30 --bench-repetitions=2 --bench-output=per
 The generated JSON includes:
 - `results`: per-test benchmark samples (`BENCH_RESULT`)
 - `meta`: per-run environment metadata (`BENCH_META`)
+- both sections include `requested_gpu_backend` so backend fallbacks are visible in reports
 
 Select tests manually:
 
@@ -58,4 +59,10 @@ Run only the CI profile with reduced cost:
 
 ```bash
 python3 Tools/perf/bench_runner.py --profile ci-software --bench-runs 10 --bench-repetitions 1 --output perf-report-ci.json
+```
+
+Run software + GLES candidates and keep going if one profile is unavailable:
+
+```bash
+python3 Tools/perf/bench_runner.py --profile ci-software --profile ci-gles --bench-runs 10 --bench-repetitions 1 --continue-on-profile-error --output perf-report-ci.json --csv-output perf-report-ci.csv
 ```

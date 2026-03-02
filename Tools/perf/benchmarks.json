@@ -34,6 +34,14 @@
       ]
     },
     {
+      "id": "ci-gles",
+      "description": "Hardware benchmark candidate profile using GLES and JIT",
+      "args": [
+        "--graphics=gles",
+        "-j"
+      ]
+    },
+    {
       "id": "software-interpreter",
       "description": "Reference profile using software renderer and interpreter core",
       "args": [

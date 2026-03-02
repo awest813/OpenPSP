@@ -495,7 +495,7 @@ jobs:
 
     - name: Execute benchmark profile
       working-directory: ${{ env.GITHUB_WORKSPACE }}
-      run: python3 Tools/perf/bench_runner.py --profile ci-software --bench-runs 10 --bench-repetitions 1 --output perf-report.json --csv-output perf-report.csv
+      run: python3 Tools/perf/bench_runner.py --profile ci-software --profile ci-gles --bench-runs 10 --bench-repetitions 1 --continue-on-profile-error --output perf-report.json --csv-output perf-report.csv
 
     - name: Upload perf report
       uses: actions/upload-artifact@v6

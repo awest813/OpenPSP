@@ -599,12 +599,21 @@ def parse_bench_record(line, prefix):
   except ValueError:
     return None
 
+def parse_requested_gpu_backend(headless_args):
+  for arg in headless_args:
+    if arg.startswith("--graphics="):
+      return arg[len("--graphics="):]
+    if arg == "--graphics":
+      return "default"
+  return "default"
+
 def run_benchmarks(test_list, args, bench_runs, bench_repetitions, bench_output):
   global PPSSPP_EXE, TIMEOUT
   returncode = 0
   bench_results = []
   bench_meta_records = []
   headless_args = [i for i in args if i not in ['-g', '-m', '-b']]
+  requested_gpu_backend = parse_requested_gpu_backend(headless_args)
 
   for test in test_list:
     # Try prx first
@@ -647,10 +656,12 @@ def run_benchmarks(test_list, args, bench_runs, bench_repetitions, bench_output)
       else:
         bench_result["requested_test"] = test
         bench_result["repetition"] = repetition + 1
+        bench_result["requested_gpu_backend"] = requested_gpu_backend
         bench_results.append(bench_result)
         if bench_meta is not None:
           bench_meta["requested_test"] = test
           bench_meta["repetition"] = repetition + 1
+          bench_meta["requested_gpu_backend"] = requested_gpu_backend
           bench_meta_records.append(bench_meta)
 
       if process.returncode != 0 and returncode == 0:
