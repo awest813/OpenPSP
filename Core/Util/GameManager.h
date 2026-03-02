@@ -24,6 +24,10 @@
 
 #include <thread>
 #include <atomic>
+#include <cstdint>
+#include <ctime>
+#include <map>
+#include <mutex>
 #include <optional>
 
 #include "Common/Net/HTTPClient.h"
@@ -108,10 +112,19 @@ private:
 	std::string GetGameID(const Path &path) const;
 	std::string GetPBPGameID(FileLoader *loader) const;
 	std::string GetISOGameID(FileLoader *loader) const;
+
+	struct GameIDCacheEntry {
+		time_t mtime = 0;
+		uint64_t fileSize = 0;
+		std::string gameID;
+	};
+
 	std::shared_ptr<http::Request> curDownload_;
 	std::thread installThread_;
 	std::atomic<bool> installDonePending_{};
 	std::atomic<bool> cleanRecentsAfter_{};
+	mutable std::mutex gameIDCacheLock_;
+	mutable std::map<Path, GameIDCacheEntry> gameIDCache_;
 
 	float installProgress_ = 0.0f;
 	std::string installError_;

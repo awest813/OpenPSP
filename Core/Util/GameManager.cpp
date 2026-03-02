@@ -396,6 +396,25 @@ void GameManager::SetInstallError(std::string_view err) {
 }
 
 std::string GameManager::GetGameID(const Path &path) const {
+	Path cachePath = path;
+	if (File::IsDirectory(cachePath)) {
+		Path pbpPath = ResolvePBPFile(cachePath);
+		if (pbpPath.Valid()) {
+			cachePath = pbpPath;
+		}
+	}
+
+	time_t modTime = 0;
+	const bool hasModTime = File::GetModifTimeT(cachePath, &modTime);
+	const uint64_t fileSize = hasModTime ? File::GetFileSize(cachePath) : 0;
+	if (hasModTime) {
+		std::lock_guard<std::mutex> guard(gameIDCacheLock_);
+		auto it = gameIDCache_.find(cachePath);
+		if (it != gameIDCache_.end() && it->second.mtime == modTime && it->second.fileSize == fileSize) {
+			return it->second.gameID;
+		}
+	}
+
 	auto loader = ConstructFileLoader(path);
 	std::string id;
 
@@ -422,6 +441,15 @@ std::string GameManager::GetGameID(const Path &path) const {
 	}
 
 	delete loader;
+
+	if (hasModTime) {
+		std::lock_guard<std::mutex> guard(gameIDCacheLock_);
+		gameIDCache_[cachePath] = { modTime, fileSize, id };
+		if (gameIDCache_.size() > 512) {
+			gameIDCache_.erase(gameIDCache_.begin());
+		}
+	}
+
 	return id;
 }
 
