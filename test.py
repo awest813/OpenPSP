@@ -614,60 +614,72 @@ def run_benchmarks(test_list, args, bench_runs, bench_repetitions, bench_output)
   bench_meta_records = []
   headless_args = [i for i in args if i not in ['-g', '-m', '-b']]
   requested_gpu_backend = parse_requested_gpu_backend(headless_args)
-
+  test_filenames = []
   for test in test_list:
-    # Try prx first
     test_filename = TEST_ROOT + test + ".prx"
     if not os.path.exists(test_filename):
       print("WARNING: no prx, trying elf")
       test_filename = TEST_ROOT + test + ".elf"
+    test_filenames.append(test_filename)
 
-    for repetition in range(bench_repetitions):
-      cmdline = [
-        PPSSPP_EXE,
-        '--root',
-        TEST_ROOT + '../',
-        '--bench',
-        '--bench-runs=' + str(bench_runs),
-        '--timeout=' + str(TIMEOUT),
-        test_filename,
-      ]
-      cmdline.extend(headless_args)
+  for repetition in range(bench_repetitions):
+    cmdline = [
+      PPSSPP_EXE,
+      '--root',
+      TEST_ROOT + '../',
+      '--bench',
+      '--bench-runs=' + str(bench_runs),
+      '--timeout=' + str(TIMEOUT),
+    ]
+    cmdline.extend(headless_args)
+    cmdline.extend(test_filenames)
 
-      process = subprocess.Popen(cmdline, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, universal_newlines=True)
-      output, _ = process.communicate()
-      if output:
-        sys.stdout.write(output)
+    process = subprocess.Popen(cmdline, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, universal_newlines=True)
+    output, _ = process.communicate()
+    if output:
+      sys.stdout.write(output)
 
-      bench_meta = None
-      bench_result = None
-      if output:
-        for line in output.splitlines():
-          meta = parse_bench_record(line, "BENCH_META ")
-          if meta is not None:
-            bench_meta = meta
-          parsed = parse_bench_record(line, "BENCH_RESULT ")
-          if parsed is not None:
-            bench_result = parsed
+    bench_meta = None
+    bench_results_for_repetition = []
+    if output:
+      for line in output.splitlines():
+        meta = parse_bench_record(line, "BENCH_META ")
+        if meta is not None:
+          bench_meta = meta
+        parsed = parse_bench_record(line, "BENCH_RESULT ")
+        if parsed is not None:
+          bench_results_for_repetition.append(parsed)
 
-      if bench_result is None:
-        print("ERROR: Missing BENCH_RESULT output for " + test)
-        returncode = process.returncode if process.returncode else 1
-      else:
-        bench_result["requested_test"] = test
+    if not bench_results_for_repetition:
+      print("ERROR: Missing BENCH_RESULT output in repetition " + str(repetition + 1))
+      returncode = process.returncode if process.returncode else 1
+    else:
+      parsed_ids = set()
+      for bench_result in bench_results_for_repetition:
+        test_id = bench_result.get("test_id", "unknown")
+        parsed_ids.add(test_id)
+        bench_result["requested_test"] = test_id
         bench_result["repetition"] = repetition + 1
         bench_result["requested_gpu_backend"] = requested_gpu_backend
         bench_results.append(bench_result)
+
         if bench_meta is not None:
-          bench_meta["requested_test"] = test
-          bench_meta["repetition"] = repetition + 1
-          bench_meta["requested_gpu_backend"] = requested_gpu_backend
-          bench_meta_records.append(bench_meta)
+          bench_meta_record = dict(bench_meta)
+          bench_meta_record["requested_test"] = test_id
+          bench_meta_record["repetition"] = repetition + 1
+          bench_meta_record["requested_gpu_backend"] = requested_gpu_backend
+          bench_meta_records.append(bench_meta_record)
 
-      if process.returncode != 0 and returncode == 0:
-        returncode = process.returncode
+      missing_tests = [test for test in test_list if test not in parsed_ids]
+      if missing_tests:
+        print("ERROR: Missing BENCH_RESULT entries for: " + ", ".join(missing_tests))
+        if returncode == 0:
+          returncode = process.returncode if process.returncode else 1
 
-      print("Ran " + ' '.join(cmdline))
+    if process.returncode != 0 and returncode == 0:
+      returncode = process.returncode
+
+    print("Ran " + ' '.join(cmdline))
 
   if bench_results:
     grouped = {}
