@@ -607,6 +607,18 @@ def parse_requested_gpu_backend(headless_args):
       return "default"
   return "default"
 
+def parse_requested_cpu_core(headless_args):
+  for arg in headless_args:
+    if arg == "-i":
+      return "interpreter"
+    if arg == "-j":
+      return "jit"
+    if arg == "--ir":
+      return "ir_interpreter"
+    if arg == "--jit-ir":
+      return "jit_ir"
+  return "default"
+
 def run_benchmarks(test_list, args, bench_runs, bench_repetitions, bench_output):
   global PPSSPP_EXE, TIMEOUT
   returncode = 0
@@ -614,6 +626,7 @@ def run_benchmarks(test_list, args, bench_runs, bench_repetitions, bench_output)
   bench_meta_records = []
   headless_args = [i for i in args if i not in ['-g', '-m', '-b']]
   requested_gpu_backend = parse_requested_gpu_backend(headless_args)
+  requested_cpu_core = parse_requested_cpu_core(headless_args)
   test_filenames = []
   for test in test_list:
     test_filename = TEST_ROOT + test + ".prx"
@@ -661,6 +674,7 @@ def run_benchmarks(test_list, args, bench_runs, bench_repetitions, bench_output)
         bench_result["requested_test"] = test_id
         bench_result["repetition"] = repetition + 1
         bench_result["requested_gpu_backend"] = requested_gpu_backend
+        bench_result.setdefault("requested_cpu_core", requested_cpu_core)
         bench_results.append(bench_result)
 
         if bench_meta is not None:
@@ -668,6 +682,7 @@ def run_benchmarks(test_list, args, bench_runs, bench_repetitions, bench_output)
           bench_meta_record["requested_test"] = test_id
           bench_meta_record["repetition"] = repetition + 1
           bench_meta_record["requested_gpu_backend"] = requested_gpu_backend
+          bench_meta_record.setdefault("requested_cpu_core", requested_cpu_core)
           bench_meta_records.append(bench_meta_record)
 
       missing_tests = [test for test in test_list if test not in parsed_ids]
