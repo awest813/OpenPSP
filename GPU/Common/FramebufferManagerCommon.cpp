@@ -846,6 +846,10 @@ void FramebufferManagerCommon::CopyToColorFromOverlappingFramebuffers(VirtualFra
 		}
 	}
 
+	if (sources.empty()) {
+		return;
+	}
+
 	std::sort(sources.begin(), sources.end());
 
 	draw_->Invalidate(InvalidationFlags::CACHED_RENDER_STATE);
@@ -917,8 +921,10 @@ void FramebufferManagerCommon::CopyToColorFromOverlappingFramebuffers(VirtualFra
 		draw_->BindFramebufferAsRenderTarget(currentRenderVfb_->fbo, { Draw::RPAction::KEEP, Draw::RPAction::KEEP, Draw::RPAction::KEEP }, "After Reinterpret");
 	}
 
-	shaderManager_->DirtyLastShader();
-	textureCache_->ForgetLastTexture();
+	if (tookActions) {
+		shaderManager_->DirtyLastShader();
+		textureCache_->ForgetLastTexture();
+	}
 }
 
 Draw2DPipeline *FramebufferManagerCommon::GetReinterpretPipeline(GEBufferFormat from, GEBufferFormat to, float *scaleFactorX) {
