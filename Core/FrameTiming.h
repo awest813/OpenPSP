@@ -14,6 +14,7 @@ public:
 	void PostSubmit();
 	void ComputePresentMode(Draw::DrawContext *draw, bool fastForward);
 	void ProcessFallbackThrottle(bool frameHandledThrottling);
+	void ProcessHiddenWindowThrottle();
 
 	bool FastForwardNeedsSkipFlip() const {
 		return fastForwardSkipFlip_;
@@ -23,6 +24,8 @@ public:
 	}
 
 private:
+	float GetDisplayRefreshRate(double now);
+
 	// For use on the next Present. These two are set by ComputePresentMode.
 	Draw::PresentMode presentMode_ = Draw::PresentMode::FIFO;
 	bool fastForwardSkipFlip_ = true;

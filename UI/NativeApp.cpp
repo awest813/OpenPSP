@@ -970,7 +970,7 @@ void NativeFrame(GraphicsContext *graphicsContext) {
 
 	if (System_GetPropertyInt(SYSPROP_DEVICE_TYPE) == DEVICE_TYPE_DESKTOP) {
 		if (g_windowHidden && g_Config.bPauseWhenMinimized) {
-			sleep_ms(16, "window-hidden");
+			g_frameTiming.ProcessHiddenWindowThrottle();
 			return;
 		}
 	}

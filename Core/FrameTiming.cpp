@@ -145,14 +145,7 @@ void FrameTiming::ComputePresentMode(Draw::DrawContext *draw, bool fastForward) 
 	fastForwardSkipFlip_ = true;
 }
 
-void FrameTiming::ProcessFallbackThrottle(bool frameHandledThrottling) {
-	if (frameHandledThrottling) {
-		// Game screen or another screen handled timing on its own.
-		lastFallbackThrottleTime_ = 0.0;
-		return;
-	}
-
-	double now = time_now_d();
+float FrameTiming::GetDisplayRefreshRate(double now) {
 	// Avoid polling refresh rate every frame; update periodically in case display settings change.
 	if (lastRefreshRatePollTime_ == 0.0 || now - lastRefreshRatePollTime_ >= 1.0) {
 		cachedDisplayRefreshRate_ = System_GetPropertyFloat(SYSPROP_DISPLAY_REFRESH_RATE);
@@ -161,7 +154,18 @@ void FrameTiming::ProcessFallbackThrottle(bool frameHandledThrottling) {
 		}
 		lastRefreshRatePollTime_ = now;
 	}
-	const double frameInterval = 1.0 / cachedDisplayRefreshRate_;
+	return cachedDisplayRefreshRate_;
+}
+
+void FrameTiming::ProcessFallbackThrottle(bool frameHandledThrottling) {
+	if (frameHandledThrottling) {
+		// Game screen or another screen handled timing on its own.
+		lastFallbackThrottleTime_ = 0.0;
+		return;
+	}
+
+	double now = time_now_d();
+	const double frameInterval = 1.0 / GetDisplayRefreshRate(now);
 
 	if (lastFallbackThrottleTime_ > 0.0) {
 		double nextFrameTime = lastFallbackThrottleTime_ + frameInterval;
@@ -174,4 +178,12 @@ void FrameTiming::ProcessFallbackThrottle(bool frameHandledThrottling) {
 	}
 
 	lastFallbackThrottleTime_ = now;
+}
+
+void FrameTiming::ProcessHiddenWindowThrottle() {
+	const double now = time_now_d();
+	const double frameInterval = 1.0 / GetDisplayRefreshRate(now);
+	WaitUntil(now, now + frameInterval, "window-hidden");
+	// Hidden/minimized path should not influence fallback pacing cadence.
+	lastFallbackThrottleTime_ = 0.0;
 }
