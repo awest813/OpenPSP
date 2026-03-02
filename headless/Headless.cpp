@@ -189,6 +189,13 @@ struct BenchRunResult {
 	int successfulRuns = 0;
 	double totalSeconds = 0.0;
 	bool success = false;
+	uint64_t threadEnqueuedDelta = 0;
+	uint64_t threadDispatchedPrivateDelta = 0;
+	uint64_t threadDispatchedGlobalDelta = 0;
+	uint64_t threadWorkerWaitsDelta = 0;
+	uint64_t threadWorkerWaitTimeUsDelta = 0;
+	int threadComputeQueueMax = 0;
+	int threadIOQueueMax = 0;
 };
 
 static std::string JsonEscape(const std::string &value) {
@@ -344,6 +351,13 @@ static void PrintBenchResult(const AutoTestOptions &opt, const CoreParameter &co
 	json << ",\"avg_seconds\":" << avgSeconds;
 	json << ",\"runs_per_second\":" << runsPerSecond;
 	json << ",\"success\":" << (result.success ? "true" : "false");
+	json << ",\"thread_enqueued_delta\":" << result.threadEnqueuedDelta;
+	json << ",\"thread_dispatched_private_delta\":" << result.threadDispatchedPrivateDelta;
+	json << ",\"thread_dispatched_global_delta\":" << result.threadDispatchedGlobalDelta;
+	json << ",\"thread_worker_waits_delta\":" << result.threadWorkerWaitsDelta;
+	json << ",\"thread_worker_wait_time_us_delta\":" << result.threadWorkerWaitTimeUsDelta;
+	json << ",\"thread_compute_queue_max\":" << result.threadComputeQueueMax;
+	json << ",\"thread_io_queue_max\":" << result.threadIOQueueMax;
 	if (std::isfinite(opt.timeout)) {
 		json << ",\"timeout_seconds\":" << opt.timeout;
 	} else {
@@ -467,6 +481,7 @@ bool RunAutoTest(HeadlessHost *headlessHost, CoreParameter &coreParameter, const
 static BenchRunResult RunBenchmarks(HeadlessHost *headlessHost, CoreParameter &coreParameter, const AutoTestOptions &opt) {
 	BenchRunResult result{};
 	result.requestedRuns = std::max(1, opt.benchRuns);
+	ThreadManagerStats threadStatsBefore = g_threadManager.GetStats();
 	const double start = time_now_d();
 
 	for (int i = 0; i < result.requestedRuns; ++i) {
@@ -481,6 +496,17 @@ static BenchRunResult RunBenchmarks(HeadlessHost *headlessHost, CoreParameter &c
 
 	result.totalSeconds = time_now_d() - start;
 	result.success = result.successfulRuns == result.requestedRuns;
+	ThreadManagerStats threadStatsAfter = g_threadManager.GetStats();
+	const auto safeDelta = [](uint64_t before, uint64_t after) -> uint64_t {
+		return after >= before ? (after - before) : 0;
+	};
+	result.threadEnqueuedDelta = safeDelta(threadStatsBefore.enqueuedTasks, threadStatsAfter.enqueuedTasks);
+	result.threadDispatchedPrivateDelta = safeDelta(threadStatsBefore.dispatchedToPrivate, threadStatsAfter.dispatchedToPrivate);
+	result.threadDispatchedGlobalDelta = safeDelta(threadStatsBefore.dispatchedToGlobal, threadStatsAfter.dispatchedToGlobal);
+	result.threadWorkerWaitsDelta = safeDelta(threadStatsBefore.workerWaits, threadStatsAfter.workerWaits);
+	result.threadWorkerWaitTimeUsDelta = safeDelta(threadStatsBefore.workerWaitTimeUs, threadStatsAfter.workerWaitTimeUs);
+	result.threadComputeQueueMax = threadStatsAfter.maxComputeQueueSize;
+	result.threadIOQueueMax = threadStatsAfter.maxIOQueueSize;
 	return result;
 }
 
