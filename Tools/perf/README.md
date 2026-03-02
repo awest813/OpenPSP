@@ -39,7 +39,7 @@ python3 test.py --bench --bench-runs=30 --bench-repetitions=2 --bench-output=per
 The generated JSON includes:
 - `results`: per-test benchmark samples (`BENCH_RESULT`)
 - `meta`: per-run environment metadata (`BENCH_META`)
-- both sections include `requested_gpu_backend` so backend fallbacks are visible in reports
+- both sections include `requested_gpu_backend` and `requested_cpu_core` so fallback/override behavior is visible in reports
 
 Select tests manually:
 
