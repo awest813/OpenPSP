@@ -138,7 +138,7 @@ void ParallelMemcpy(ThreadManager *threadMan, void *dst, const void *src, size_t
 void ParallelMemset(ThreadManager *threadMan, void *dst, uint8_t value, size_t bytes, TaskPriority priority) {
 	// This threshold can probably be a lot bigger.
 	if (bytes < 128 * 1024) {
-		memset(dst, 0, bytes);
+		memset(dst, value, bytes);
 		return;
 	}
 

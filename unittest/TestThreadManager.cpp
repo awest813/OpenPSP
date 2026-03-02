@@ -64,6 +64,36 @@ bool TestParallelLoop(ThreadManager *threadMan) {
 	return true;
 }
 
+bool TestParallelMemoryOps(ThreadManager *threadMan) {
+	std::vector<uint8_t> smallBuffer(64 * 1024, 0x00);
+	ParallelMemset(threadMan, smallBuffer.data(), 0xAB, smallBuffer.size(), TaskPriority::NORMAL);
+	for (uint8_t value : smallBuffer) {
+		if (value != 0xAB) {
+			printf("ParallelMemset small buffer mismatch\n");
+			return false;
+		}
+	}
+
+	std::vector<uint8_t> largeBuffer(256 * 1024, 0x00);
+	ParallelMemset(threadMan, largeBuffer.data(), 0x5D, largeBuffer.size(), TaskPriority::HIGH);
+	for (uint8_t value : largeBuffer) {
+		if (value != 0x5D) {
+			printf("ParallelMemset large buffer mismatch\n");
+			return false;
+		}
+	}
+
+	std::vector<uint8_t> src(200 * 1024, 0x3C);
+	std::vector<uint8_t> dst(src.size(), 0x00);
+	ParallelMemcpy(threadMan, dst.data(), src.data(), src.size(), TaskPriority::HIGH);
+	if (dst != src) {
+		printf("ParallelMemcpy mismatch\n");
+		return false;
+	}
+
+	return true;
+}
+
 const size_t THREAD_COUNT = 9;
 const size_t ITERATIONS = 40000;
 
@@ -133,6 +163,9 @@ bool TestThreadManager() {
 	Promise<ResultObject *> *object(Promise<ResultObject *>::Spawn(&manager, &ResultProducer, TaskType::IO_BLOCKING));
 
 	if (!TestParallelLoop(&manager)) {
+		return false;
+	}
+	if (!TestParallelMemoryOps(&manager)) {
 		return false;
 	}
 	sleep_ms(100, "test-threadman");
