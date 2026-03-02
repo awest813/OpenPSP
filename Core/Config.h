@@ -187,6 +187,14 @@ public:
 		bool force72Hz;
 		int displayRefreshRate;
 	};
+	struct RuntimeUIFrameSettings {
+		bool pauseWhenMinimized;
+		bool autoAudioDevice;
+		int debugOverlay;
+		bool gpuLogProfiler;
+		float uiTint;
+		float uiSaturation;
+	};
 
 	~Config();
 
@@ -214,6 +222,16 @@ public:
 			bShaderChainRequires60FPS,
 			bForce72Hz,
 			iDisplayRefreshRate,
+		};
+	}
+	RuntimeUIFrameSettings GetRuntimeUIFrameSettings() const {
+		return RuntimeUIFrameSettings{
+			bPauseWhenMinimized,
+			bAutoAudioDevice,
+			iDebugOverlay,
+			bGpuLogProfiler,
+			fUITint,
+			fUISaturation,
 		};
 	}
 

@@ -967,9 +967,10 @@ static void SendMouseDeltaAxis();
 
 void NativeFrame(GraphicsContext *graphicsContext) {
 	PROFILE_END_FRAME();
+	const auto frameSettings = g_Config.GetRuntimeUIFrameSettings();
 
 	if (System_GetPropertyInt(SYSPROP_DEVICE_TYPE) == DEVICE_TYPE_DESKTOP) {
-		if (g_windowHidden && g_Config.bPauseWhenMinimized) {
+		if (g_windowHidden && frameSettings.pauseWhenMinimized) {
 			g_frameTiming.ProcessHiddenWindowThrottle();
 			return;
 		}
@@ -1017,14 +1018,14 @@ void NativeFrame(GraphicsContext *graphicsContext) {
 	g_iconCache.FrameUpdate();
 
 	if (g_audioBackend) {
-		g_audioBackend->FrameUpdate(g_Config.bAutoAudioDevice);
+		g_audioBackend->FrameUpdate(frameSettings.autoAudioDevice);
 	}
 
 	// NOTE: We must begin the frame before update, so we can do texture size queries and stuff in Measure etc.
 	Draw::DebugFlags debugFlags = Draw::DebugFlags::NONE;
-	if ((DebugOverlay)g_Config.iDebugOverlay == DebugOverlay::GPU_PROFILE)
+	if ((DebugOverlay)frameSettings.debugOverlay == DebugOverlay::GPU_PROFILE)
 		debugFlags |= Draw::DebugFlags::PROFILE_TIMESTAMPS;
-	if (g_Config.bGpuLogProfiler)
+	if (frameSettings.gpuLogProfiler)
 		debugFlags |= Draw::DebugFlags::PROFILE_SCOPES;
 	g_draw->BeginFrame(debugFlags);
 
@@ -1074,7 +1075,8 @@ void NativeFrame(GraphicsContext *graphicsContext) {
 
 	ui_draw2d.PushDrawMatrix(ortho);
 
-	g_screenManager->getUIContext()->SetTintSaturation(g_Config.fUITint, g_Config.fUISaturation);
+	const auto uiFrameSettings = g_Config.GetRuntimeUIFrameSettings();
+	g_screenManager->getUIContext()->SetTintSaturation(uiFrameSettings.uiTint, uiFrameSettings.uiSaturation);
 
 	// All actual rendering (and also emulation) happens in here.
 	ScreenRenderFlags renderFlags = g_screenManager->render();
