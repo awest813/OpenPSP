@@ -195,6 +195,14 @@ public:
 		float uiTint;
 		float uiSaturation;
 	};
+	struct RuntimeDrawEngineSettings {
+		bool vertexDecoderJit;
+		int cpuCore;
+		bool hardwareTransform;
+		bool hardwareTessellation;
+		bool softwareSkinning;
+		int depthRasterMode;
+	};
 
 	~Config();
 
@@ -232,6 +240,16 @@ public:
 			bGpuLogProfiler,
 			fUITint,
 			fUISaturation,
+		};
+	}
+	RuntimeDrawEngineSettings GetRuntimeDrawEngineSettings() const {
+		return RuntimeDrawEngineSettings{
+			bVertexDecoderJit,
+			iCpuCore,
+			bHardwareTransform,
+			bHardwareTessellation,
+			bSoftwareSkinning,
+			iDepthRasterMode,
 		};
 	}
 

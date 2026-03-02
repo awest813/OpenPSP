@@ -41,7 +41,8 @@ enum {
 };
 
 DrawEngineCommon::DrawEngineCommon() : decoderMap_(32) {
-	if (g_Config.bVertexDecoderJit && (g_Config.iCpuCore == (int)CPUCore::JIT || g_Config.iCpuCore == (int)CPUCore::JIT_IR)) {
+	const auto drawSettings = g_Config.GetRuntimeDrawEngineSettings();
+	if (drawSettings.vertexDecoderJit && (drawSettings.cpuCore == (int)CPUCore::JIT || drawSettings.cpuCore == (int)CPUCore::JIT_IR)) {
 		decJitCache_ = new VertexDecoderJitCache();
 	}
 	transformed_ = (TransformedVertex *)AllocateMemoryPages(TRANSFORMED_VERTEX_BUFFER_SIZE, MEM_PROT_READ | MEM_PROT_WRITE);
@@ -105,8 +106,9 @@ void DrawEngineCommon::NotifyConfigChanged() {
 	});
 	decoderMap_.Clear();
 
-	useHWTransform_ = g_Config.bHardwareTransform;
-	useHWTessellation_ = UpdateUseHWTessellation(g_Config.bHardwareTessellation);
+	const auto drawSettings = g_Config.GetRuntimeDrawEngineSettings();
+	useHWTransform_ = drawSettings.hardwareTransform;
+	useHWTessellation_ = UpdateUseHWTessellation(drawSettings.hardwareTessellation);
 }
 
 void DrawEngineCommon::DispatchSubmitImm(GEPrimitiveType prim, TransformedVertex *buffer, int vertexCount, int cullMode, bool continuation) {
@@ -781,7 +783,8 @@ bool DrawEngineCommon::SubmitPrim(const void *verts, const void *inds, GEPrimiti
 }
 
 void DrawEngineCommon::BeginFrame() {
-	applySkinInDecode_ = g_Config.bSoftwareSkinning;
+	const auto drawSettings = g_Config.GetRuntimeDrawEngineSettings();
+	applySkinInDecode_ = drawSettings.softwareSkinning;
 }
 
 void DrawEngineCommon::DecodeVerts(const VertexDecoder *dec, u8 *dest) {
@@ -926,7 +929,8 @@ enum {
 // (Alternatively, if drawing rectangles, they're just added linearly).
 // After that, we send these groups out for SIMD setup and rasterization.
 void DrawEngineCommon::InitDepthRaster() {
-	switch ((DepthRasterMode)g_Config.iDepthRasterMode) {
+	const auto drawSettings = g_Config.GetRuntimeDrawEngineSettings();
+	switch ((DepthRasterMode)drawSettings.depthRasterMode) {
 	case DepthRasterMode::DEFAULT:
 	case DepthRasterMode::LOW_QUALITY:
 		useDepthRaster_ = PSP_CoreParameter().compat.flags().SoftwareRasterDepth;
@@ -1144,7 +1148,8 @@ void DrawEngineCommon::FlushQueuedDepth() {
 	}
 
 	const bool collectStats = coreCollectDebugStats;
-	const bool lowQ = g_Config.iDepthRasterMode == (int)DepthRasterMode::LOW_QUALITY;
+	const auto drawSettings = g_Config.GetRuntimeDrawEngineSettings();
+	const bool lowQ = drawSettings.depthRasterMode == (int)DepthRasterMode::LOW_QUALITY;
 
 	for (const auto &draw : depthDraws_) {
 		int *tx = depthScreenVerts_;
