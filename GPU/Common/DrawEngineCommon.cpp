@@ -1103,19 +1103,23 @@ void DrawEngineCommon::DepthRasterPredecoded(GEPrimitiveType prim, const void *i
 	}
 
 	TimeCollector collectStat(&gpuStats.msPrepareDepth, coreCollectDebugStats);
+	const u8 *predecodedVerts = (const u8 *)inVerts;
+	if (!predecodedVerts) {
+		return;
+	}
 
 	// Make sure these have already been indexed away.
 	_dbg_assert_(prim != GE_PRIM_TRIANGLE_STRIP && prim != GE_PRIM_TRIANGLE_FAN);
 
 	if (dec->throughmode) {
-		ConvertPredecodedThroughForDepthRaster(depthTransformed_ + 4 * draw.vertexOffset, decoded_, dec, numDecoded);
+		ConvertPredecodedThroughForDepthRaster(depthTransformed_ + 4 * draw.vertexOffset, predecodedVerts, dec, numDecoded);
 	} else {
 		if (dec->VertexType() & (GE_VTYPE_WEIGHT_MASK | GE_VTYPE_MORPHCOUNT_MASK)) {
 			return;
 		}
 		float worldviewproj[16];
 		ComputeFinalProjMatrix().Store(worldviewproj);
-		TransformPredecodedForDepthRaster(depthTransformed_ + 4 * draw.vertexOffset, worldviewproj, decoded_, dec, numDecoded);
+		TransformPredecodedForDepthRaster(depthTransformed_ + 4 * draw.vertexOffset, worldviewproj, predecodedVerts, dec, numDecoded);
 	}
 
 	// Copy indices.
