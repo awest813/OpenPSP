@@ -18,6 +18,7 @@
 #include <cmath>
 #include <limits>
 #include <mutex>
+#include <algorithm>
 #include <utility>
 
 
@@ -357,11 +358,16 @@ static std::vector<std::pair<u32, int>> pendingClears;
 
 void MIPSState::ProcessPendingClears() {
 	std::lock_guard<std::recursive_mutex> guard(MIPSComp::jitLock);
+	const bool clearAll = std::find(pendingClears.begin(), pendingClears.end(), std::pair<u32, int>{0, 0}) != pendingClears.end();
+	if (clearAll) {
+		MIPSComp::jit->ClearCache();
+		pendingClears.clear();
+		hasPendingClears = false;
+		return;
+	}
+
 	for (auto &p : pendingClears) {
-		if (p.first == 0 && p.second == 0)
-			MIPSComp::jit->ClearCache();
-		else
-			MIPSComp::jit->InvalidateCacheAt(p.first, p.second);
+		MIPSComp::jit->InvalidateCacheAt(p.first, p.second);
 	}
 	pendingClears.clear();
 	hasPendingClears = false;
@@ -380,7 +386,9 @@ void MIPSState::ClearJitCache() {
 	std::lock_guard<std::recursive_mutex> guard(MIPSComp::jitLock);
 	if (MIPSComp::jit) {
 		if (coreState == CORE_RUNNING_CPU || insideJit) {
-			pendingClears.emplace_back(0, 0);
+			if (std::find(pendingClears.begin(), pendingClears.end(), std::pair<u32, int>{0, 0}) == pendingClears.end()) {
+				pendingClears.emplace_back(0, 0);
+			}
 			hasPendingClears = true;
 			CoreTiming::ForceCheck();
 		} else {
