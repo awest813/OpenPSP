@@ -89,5 +89,5 @@ python3 Tools/perf/compare_reports.py --baseline perf-report-baseline.json --can
 Optionally fail on regressions beyond tolerance bands:
 
 ```bash
-python3 Tools/perf/compare_reports.py --baseline perf-report-baseline.json --candidate perf-report-candidate.json --max-avg-seconds-regression-pct 5 --max-rps-regression-pct 5
+python3 Tools/perf/compare_reports.py --baseline perf-report-baseline.json --candidate perf-report-candidate.json --max-avg-seconds-regression-pct 5 --max-rps-regression-pct 5 --max-backend-fallback-increase 0 --max-cpu-fallback-increase 0
 ```

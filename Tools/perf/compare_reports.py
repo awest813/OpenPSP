@@ -21,6 +21,12 @@ def flatten_summary(report):
     }
   return flattened
 
+def fallback_count(report, key):
+  values = report.get(key, [])
+  if isinstance(values, list):
+    return len(values)
+  return 0
+
 
 def percent_change(old_value, new_value):
   if old_value == 0.0:
@@ -34,10 +40,14 @@ def main():
   parser.add_argument("--candidate", required=True, help="Candidate perf-report JSON")
   parser.add_argument("--max-avg-seconds-regression-pct", type=float, default=None, help="Fail if avg_seconds regression exceeds this percent")
   parser.add_argument("--max-rps-regression-pct", type=float, default=None, help="Fail if runs_per_second regression exceeds this percent")
+  parser.add_argument("--max-backend-fallback-increase", type=int, default=None, help="Fail if backend fallback sample count increases by more than this value")
+  parser.add_argument("--max-cpu-fallback-increase", type=int, default=None, help="Fail if CPU fallback sample count increases by more than this value")
   args = parser.parse_args()
 
-  baseline = flatten_summary(load_report(args.baseline))
-  candidate = flatten_summary(load_report(args.candidate))
+  baseline_report = load_report(args.baseline)
+  candidate_report = load_report(args.candidate)
+  baseline = flatten_summary(baseline_report)
+  candidate = flatten_summary(candidate_report)
 
   common_keys = sorted(set(baseline.keys()) & set(candidate.keys()))
   missing_from_candidate = sorted(set(baseline.keys()) - set(candidate.keys()))
@@ -77,6 +87,30 @@ def main():
       if args.max_rps_regression_pct is not None and (-rps_delta_pct) > args.max_rps_regression_pct:
         print("    REGRESSION: runs_per_second delta {:+.2f}% exceeds -{:.2f}%".format(rps_delta_pct, args.max_rps_regression_pct))
         failed = True
+
+  baseline_backend_fallbacks = fallback_count(baseline_report, "backend_fallbacks")
+  candidate_backend_fallbacks = fallback_count(candidate_report, "backend_fallbacks")
+  backend_fallback_delta = candidate_backend_fallbacks - baseline_backend_fallbacks
+  print("Fallbacks: backend {} -> {} (delta {:+d})".format(
+    baseline_backend_fallbacks,
+    candidate_backend_fallbacks,
+    backend_fallback_delta,
+  ))
+  if args.max_backend_fallback_increase is not None and backend_fallback_delta > args.max_backend_fallback_increase:
+    print("    REGRESSION: backend fallback delta {:+d} exceeds +{:d}".format(backend_fallback_delta, args.max_backend_fallback_increase))
+    failed = True
+
+  baseline_cpu_fallbacks = fallback_count(baseline_report, "cpu_fallbacks")
+  candidate_cpu_fallbacks = fallback_count(candidate_report, "cpu_fallbacks")
+  cpu_fallback_delta = candidate_cpu_fallbacks - baseline_cpu_fallbacks
+  print("Fallbacks: cpu {} -> {} (delta {:+d})".format(
+    baseline_cpu_fallbacks,
+    candidate_cpu_fallbacks,
+    cpu_fallback_delta,
+  ))
+  if args.max_cpu_fallback_increase is not None and cpu_fallback_delta > args.max_cpu_fallback_increase:
+    print("    REGRESSION: CPU fallback delta {:+d} exceeds +{:d}".format(cpu_fallback_delta, args.max_cpu_fallback_increase))
+    failed = True
 
   if failed:
     return 2
