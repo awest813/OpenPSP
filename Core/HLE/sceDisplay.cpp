@@ -21,12 +21,6 @@
 #include <mutex>
 #include <vector>
 
-// TODO: Move this somewhere else, cleanup.
-#ifndef _WIN32
-#include <unistd.h>
-#include <sys/time.h>
-#endif
-
 #include "Common/Data/Text/I18n.h"
 #include "Common/Profiler/Profiler.h"
 #include "Common/System/System.h"
@@ -507,17 +501,7 @@ static void DoFrameIdleTiming() {
 	// Give a little extra wiggle room in case the next vblank does more work.
 	const double goal = lastFrameTime + (numVBlanksSinceFlip - 1) * scaledVblank - 0.001;
 	if (numVBlanksSinceFlip >= 2 && before < goal) {
-		double cur_time;
-		while ((cur_time = time_now_d()) < goal) {
-#ifdef _WIN32
-			sleep_ms(1, "frame-idle");
-#else
-			const double left = goal - cur_time;
-			if (left > 0.0f && left < 1.0f) {  // Sanity check
-				usleep((long)(left * 1000000));
-			}
-#endif
-		}
+		WaitUntil(before, goal, "frame-idle");
 
 		if ((DebugOverlay)g_Config.iDebugOverlay == DebugOverlay::FRAME_GRAPH || coreCollectDebugStats) {
 			DisplayNotifySleep(time_now_d() - before);
@@ -776,20 +760,10 @@ void hleLagSync(u64 userdata, int cyclesLate) {
 	const double goal = lastLagSync + (scale / 1000.0f);
 	double before = time_now_d();
 	// Don't lag too long ever, if they leave it paused.
-	double now = before;
-	while (now < goal && goal < now + 0.01) {
-		// Tight loop on win32 - intentionally, as timing is otherwise not precise enough.
-		// TODO: Use the precise waits if available
-#ifndef _WIN32
-		const double left = goal - now;
-		if (left > 0.0f && left < 1.0f) {  // Sanity check
-			usleep((long)(left * 1000000.0));
-		}
-#else
-		yield();
-#endif
-		now = time_now_d();
+	if (goal > before && goal < before + 0.01) {
+		WaitUntil(before, goal, "lag-sync");
 	}
+	double now = time_now_d();
 
 	const int emuOver = (int)cyclesToUs(cyclesLate);
 	const int over = (int)((now - goal) * 1000000);
