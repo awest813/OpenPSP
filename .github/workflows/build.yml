@@ -446,10 +446,19 @@ jobs:
     - name: Fix headless permissions
       working-directory: ${{ env.GITHUB_WORKSPACE }}
       run: |
-        cp `find . -name PPSSPPHeadless` .
-        chmod +x PPSSPPHeadless
-        cp `find . -name PPSSPPUnitTest` .
-        chmod +x PPSSPPUnitTest
+        for path in ppsspp/PPSSPPHeadless ppsspp/*/PPSSPPHeadless; do
+          if [ -f "$path" ]; then
+            cp "$path" ./PPSSPPHeadless
+            break
+          fi
+        done
+        for path in ppsspp/PPSSPPUnitTest ppsspp/*/PPSSPPUnitTest; do
+          if [ -f "$path" ]; then
+            cp "$path" ./PPSSPPUnitTest
+            break
+          fi
+        done
+        chmod +x PPSSPPHeadless PPSSPPUnitTest
 
     - name: Execute unit tests
       working-directory: ${{ env.GITHUB_WORKSPACE }}
@@ -490,7 +499,12 @@ jobs:
     - name: Fix headless permissions
       working-directory: ${{ env.GITHUB_WORKSPACE }}
       run: |
-        cp `find . -name PPSSPPHeadless` .
+        for path in ppsspp/PPSSPPHeadless ppsspp/*/PPSSPPHeadless; do
+          if [ -f "$path" ]; then
+            cp "$path" ./PPSSPPHeadless
+            break
+          fi
+        done
         chmod +x PPSSPPHeadless
 
     - name: Execute benchmark profile
