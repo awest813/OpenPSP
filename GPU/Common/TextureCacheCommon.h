@@ -335,6 +335,8 @@ struct BuildTexturePlan {
 
 class TextureCacheCommon {
 public:
+	static constexpr u32 DEFAULT_INVALIDATE_LEEWAY_BYTES = 512 * 512 * 4;
+
 	TextureCacheCommon(Draw::DrawContext *draw, Draw2D *draw2D);
 	virtual ~TextureCacheCommon();
 
@@ -562,6 +564,7 @@ protected:
 	bool nextNeedsRebuild_;
 
 	u32 *expandClut_;
+	u32 invalidateLeewayBytes_ = DEFAULT_INVALIDATE_LEEWAY_BYTES;
 };
 
 inline bool TexCacheEntry::Matches(u16 dim2, u8 format2, u8 maxLevel2) const {

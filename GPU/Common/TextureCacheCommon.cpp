@@ -690,6 +690,7 @@ TexCacheEntry *TextureCacheCommon::SetTexture() {
 	entry->status &= ~TexCacheEntry::STATUS_BGRA;
 
 	entry->bufw = bufw;
+	invalidateLeewayBytes_ = std::max(invalidateLeewayBytes_, entry->SizeInRAM());
 
 	entry->cluthash = cluthash;
 
@@ -955,8 +956,10 @@ void TextureCacheCommon::NotifyFramebuffer(VirtualFramebuffer *framebuffer, Fram
 
 		// Color - no need to look in the mirrors.
 		for (auto it = cache_.lower_bound(cacheKey), end = cache_.upper_bound(cacheKeyEnd); it != end; ++it) {
-			it->second->status |= TexCacheEntry::STATUS_FRAMEBUFFER_OVERLAP;
-			gpuStats.numTextureInvalidationsByFramebuffer++;
+			if ((it->second->status & TexCacheEntry::STATUS_FRAMEBUFFER_OVERLAP) == 0) {
+				it->second->status |= TexCacheEntry::STATUS_FRAMEBUFFER_OVERLAP;
+				gpuStats.numTextureInvalidationsByFramebuffer++;
+			}
 		}
 
 		if (z_stride != 0) {
@@ -965,12 +968,16 @@ void TextureCacheCommon::NotifyFramebuffer(VirtualFramebuffer *framebuffer, Fram
 			cacheKey = (u64)z_addr << 32;
 			cacheKeyEnd = (u64)z_endAddr << 32;
 			for (auto it = cache_.lower_bound(cacheKey | 0x200000), end = cache_.upper_bound(cacheKeyEnd | 0x200000); it != end; ++it) {
-				it->second->status |= TexCacheEntry::STATUS_FRAMEBUFFER_OVERLAP;
-				gpuStats.numTextureInvalidationsByFramebuffer++;
+				if ((it->second->status & TexCacheEntry::STATUS_FRAMEBUFFER_OVERLAP) == 0) {
+					it->second->status |= TexCacheEntry::STATUS_FRAMEBUFFER_OVERLAP;
+					gpuStats.numTextureInvalidationsByFramebuffer++;
+				}
 			}
 			for (auto it = cache_.lower_bound(cacheKey | 0x600000), end = cache_.upper_bound(cacheKeyEnd | 0x600000); it != end; ++it) {
-				it->second->status |= TexCacheEntry::STATUS_FRAMEBUFFER_OVERLAP;
-				gpuStats.numTextureInvalidationsByFramebuffer++;
+				if ((it->second->status & TexCacheEntry::STATUS_FRAMEBUFFER_OVERLAP) == 0) {
+					it->second->status |= TexCacheEntry::STATUS_FRAMEBUFFER_OVERLAP;
+					gpuStats.numTextureInvalidationsByFramebuffer++;
+				}
 			}
 		}
 		break;
@@ -2574,6 +2581,8 @@ void TextureCacheCommon::Clear(bool delete_them) {
 		dynamicClutTemp_->Release();
 		dynamicClutTemp_ = nullptr;
 	}
+
+	invalidateLeewayBytes_ = TextureCacheCommon::DEFAULT_INVALIDATE_LEEWAY_BYTES;
 }
 
 void TextureCacheCommon::DeleteTexture(TexCache::iterator it) {
@@ -2668,14 +2677,13 @@ bool TextureCacheCommon::CheckFullHash(TexCacheEntry *entry, bool &doDelete) {
 }
 
 void TextureCacheCommon::Invalidate(u32 addr, int size, GPUInvalidationType type) {
-	// They could invalidate inside the texture, let's just give a bit of leeway.
-	// TODO: Keep track of the largest texture size in bytes, and use that instead of this
-	// humongous unrealistic value.
-
-	const int LARGEST_TEXTURE_SIZE = 512 * 512 * 4;
+	// They could invalidate inside the texture, so include enough leeway to cover the
+	// largest texture seen so far in this cache.
+	const u32 invalidateLeeway = invalidateLeewayBytes_;
 
 	addr &= 0x3FFFFFFF;
-	const u32 addr_end = addr + size;
+	const u32 sizeClamped = size > 0 ? (u32)size : 0;
+	const u32 addr_end = (u32)std::min<uint64_t>((uint64_t)addr + sizeClamped, 0xFFFFFFFFULL);
 
 	if (type == GPU_INVALIDATE_ALL) {
 		// This is an active signal from the game that something in the texture cache may have changed.
@@ -2683,8 +2691,8 @@ void TextureCacheCommon::Invalidate(u32 addr, int size, GPUInvalidationType type
 	} else {
 		// Do a quick check to see if the current texture could potentially be in range.
 		const u32 currentAddr = gstate.getTextureAddress(0);
-		// TODO: This can be made tighter.
-		if (addr_end >= currentAddr && addr < currentAddr + LARGEST_TEXTURE_SIZE) {
+		const u32 currentEnd = (u32)std::min<uint64_t>((uint64_t)currentAddr + invalidateLeeway, 0xFFFFFFFFULL);
+		if (addr_end >= currentAddr && addr < currentEnd) {
 			gstate_c.Dirty(DIRTY_TEXTURE_IMAGE);
 		}
 	}
@@ -2694,11 +2702,10 @@ void TextureCacheCommon::Invalidate(u32 addr, int size, GPUInvalidationType type
 		return;
 	}
 
-	const u64 startKey = (u64)(addr - LARGEST_TEXTURE_SIZE) << 32;
-	u64 endKey = (u64)(addr + size + LARGEST_TEXTURE_SIZE) << 32;
-	if (endKey < startKey) {
-		endKey = (u64)-1;
-	}
+	const u32 startAddr = addr > invalidateLeeway ? addr - invalidateLeeway : 0;
+	const u32 endAddr = (u32)std::min<uint64_t>((uint64_t)addr + sizeClamped + invalidateLeeway, 0xFFFFFFFFULL);
+	const u64 startKey = (u64)startAddr << 32;
+	const u64 endKey = (u64)endAddr << 32;
 
 	for (TexCache::iterator iter = cache_.lower_bound(startKey), end = cache_.upper_bound(endKey); iter != end; ++iter) {
 		auto &entry = iter->second;
