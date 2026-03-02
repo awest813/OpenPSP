@@ -303,6 +303,14 @@ void TextureCacheD3D11::BuildTexture(TexCacheEntry *const entry) {
 
 	// The PSP only supports 8 mip levels, but we support more in the texture replacer. 20 will never run out.
 	D3D11_SUBRESOURCE_DATA subresData[20]{};
+	auto freeUploadData = [&]() {
+		for (int i = 0; i < (int)ARRAY_SIZE(subresData); i++) {
+			if (subresData[i].pSysMem) {
+				FreeAlignedMemory((void *)subresData[i].pSysMem);
+				subresData[i].pSysMem = nullptr;
+			}
+		}
+	};
 
 	if (plan.depth == 1) {
 		// We don't yet have mip generation, so clamp the number of levels to the ones we can load directly.
@@ -361,6 +369,7 @@ void TextureCacheD3D11::BuildTexture(TexCacheEntry *const entry) {
 
 		if (!data) {
 			ERROR_LOG(Log::G3D, "Ran out of RAM trying to allocate a temporary texture upload buffer (%dx%d)", mipWidth, mipHeight);
+			freeUploadData();
 			return;
 		}
 
@@ -421,11 +430,7 @@ void TextureCacheD3D11::BuildTexture(TexCacheEntry *const entry) {
 	entry->texturePtr = texture;
 	entry->textureView = view;
 
-	for (int i = 0; i < 12; i++) {
-		if (subresData[i].pSysMem) {
-			FreeAlignedMemory((void *)subresData[i].pSysMem);
-		}
-	}
+	freeUploadData();
 
 	// Signal that we support depth textures so use it as one.
 	if (plan.depth > 1) {
