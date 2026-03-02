@@ -380,9 +380,21 @@ void IRBlockCache::RemoveBlockFromPageLookup(int blockIndex) {
 	u32 endPage = AddressToPage((u32)endAddr);
 
 	for (u32 page = startPage; page <= endPage; ++page) {
-		auto iter = std::find(byPage_[page].begin(), byPage_[page].end(), blockIndex);
-		if (iter != byPage_[page].end()) {
-			byPage_[page].erase(iter);
+		auto pageIt = byPage_.find(page);
+		if (pageIt == byPage_.end()) {
+			if (block.IsValid()) {
+				WARN_LOG(Log::JIT, "RemoveBlock: Block at %08x page %08x missing from byPage table.", startAddr, page);
+			}
+			continue;
+		}
+
+		auto &entries = pageIt->second;
+		auto iter = std::find(entries.begin(), entries.end(), blockIndex);
+		if (iter != entries.end()) {
+			entries.erase(iter);
+			if (entries.empty()) {
+				byPage_.erase(pageIt);
+			}
 		} else if (block.IsValid()) {
 			// If it was previously invalidated, we don't care, hence the above check.
 			WARN_LOG(Log::JIT, "RemoveBlock: Block at %08x was not found where expected in byPage table.", startAddr);
