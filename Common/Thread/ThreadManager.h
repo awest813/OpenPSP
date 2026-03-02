@@ -48,6 +48,20 @@ public:
 struct TaskThreadContext;
 struct GlobalThreadContext;
 
+struct ThreadManagerStats {
+	int computeQueueSize = 0;
+	int ioQueueSize = 0;
+	int maxComputeQueueSize = 0;
+	int maxIOQueueSize = 0;
+	uint64_t enqueuedTasks = 0;
+	uint64_t dedicatedTasks = 0;
+	uint64_t dispatchedToPrivate = 0;
+	uint64_t dispatchedToGlobal = 0;
+	uint64_t dequeuedFromPrivate = 0;
+	uint64_t dequeuedFromGlobal = 0;
+	uint64_t workerWaits = 0;
+};
+
 class ThreadManager {
 public:
 	ThreadManager();
@@ -72,6 +86,7 @@ public:
 	// Parallel loops (assumed compute-limited) get one thread per logical core. We have a few extra threads too
 	// for I/O bounds tasks, that can be run concurrently with those.
 	int GetNumLooperThreads() const;
+	ThreadManagerStats GetStats() const;
 
 private:
 	bool TeardownTask(Task *task, bool enqueue);

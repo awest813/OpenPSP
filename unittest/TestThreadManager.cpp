@@ -152,5 +152,11 @@ bool TestThreadManager() {
 		return false;
 	}
 
+	ThreadManagerStats stats = manager.GetStats();
+	EXPECT_TRUE(stats.enqueuedTasks > 0);
+	EXPECT_TRUE(stats.dispatchedToPrivate + stats.dispatchedToGlobal > 0);
+	EXPECT_TRUE(stats.dequeuedFromPrivate + stats.dequeuedFromGlobal > 0);
+	EXPECT_TRUE(stats.workerWaits > 0);
+
 	return true;
 }

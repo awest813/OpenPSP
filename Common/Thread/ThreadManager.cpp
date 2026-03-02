@@ -24,6 +24,12 @@ const int MAX_CORES_TO_USE = 16;
 const int MIN_IO_BLOCKING_THREADS = 4;
 static constexpr size_t TASK_PRIORITY_COUNT = (size_t)TaskPriority::COUNT;
 
+static void UpdateAtomicMax(std::atomic<int> &target, int value) {
+	int previous = target.load(std::memory_order_relaxed);
+	while (value > previous && !target.compare_exchange_weak(previous, value, std::memory_order_relaxed)) {
+	}
+}
+
 ThreadManager g_threadManager;
 
 struct GlobalThreadContext {
@@ -32,9 +38,18 @@ struct GlobalThreadContext {
 	std::atomic<int> compute_queue_size;
 	std::deque<Task *> io_queue[TASK_PRIORITY_COUNT];
 	std::atomic<int> io_queue_size;
+	std::atomic<int> max_compute_queue_size;
+	std::atomic<int> max_io_queue_size;
 	std::vector<TaskThreadContext *> threads_;
 
 	std::atomic<int> roundRobin;
+	std::atomic<uint64_t> enqueued_tasks;
+	std::atomic<uint64_t> dedicated_tasks;
+	std::atomic<uint64_t> dispatched_to_private;
+	std::atomic<uint64_t> dispatched_to_global;
+	std::atomic<uint64_t> dequeued_from_private;
+	std::atomic<uint64_t> dequeued_from_global;
+	std::atomic<uint64_t> worker_waits;
 };
 
 struct TaskThreadContext {
@@ -52,7 +67,16 @@ struct TaskThreadContext {
 ThreadManager::ThreadManager() : global_(new GlobalThreadContext()) {
 	global_->compute_queue_size = 0;
 	global_->io_queue_size = 0;
+	global_->max_compute_queue_size = 0;
+	global_->max_io_queue_size = 0;
 	global_->roundRobin = 0;
+	global_->enqueued_tasks = 0;
+	global_->dedicated_tasks = 0;
+	global_->dispatched_to_private = 0;
+	global_->dispatched_to_global = 0;
+	global_->dequeued_from_private = 0;
+	global_->dequeued_from_global = 0;
+	global_->worker_waits = 0;
 }
 
 ThreadManager::~ThreadManager() {
@@ -164,6 +188,7 @@ static void WorkerThreadFunc(GlobalThreadContext *global, TaskThreadContext *thr
 					task = queue[p].front();
 					queue[p].pop_front();
 					queue_size--;
+					global->dequeued_from_global.fetch_add(1, std::memory_order_relaxed);
 
 					// We are processing one now, so mark that.
 					thread->queue_size++;
@@ -174,6 +199,7 @@ static void WorkerThreadFunc(GlobalThreadContext *global, TaskThreadContext *thr
 					if (!thread->private_queue[p].empty()) {
 						task = thread->private_queue[p].front();
 						thread->private_queue[p].pop_front();
+						global->dequeued_from_private.fetch_add(1, std::memory_order_relaxed);
 						break;
 					}
 				}
@@ -189,14 +215,17 @@ static void WorkerThreadFunc(GlobalThreadContext *global, TaskThreadContext *thr
 
 				task = thread->private_queue[p].front();
 				thread->private_queue[p].pop_front();
+				global->dequeued_from_private.fetch_add(1, std::memory_order_relaxed);
 				break;
 			}
 
 			// We must check both queue and single again, while locked.
 			bool wait = !thread->cancelled && !task && global_queue_size() == 0;
 
-			if (wait)
+			if (wait) {
+				global->worker_waits.fetch_add(1, std::memory_order_relaxed);
 				thread->cond.wait(lock);
+			}
 		}
 		// The task itself takes care of notifying anyone waiting on it. Not the
 		// responsibility of the ThreadManager (although it could be!).
@@ -220,6 +249,19 @@ void ThreadManager::Init(int numRealCores, int numLogicalCoresPerCpu) {
 		Teardown();
 	}
 
+	global_->compute_queue_size = 0;
+	global_->io_queue_size = 0;
+	global_->max_compute_queue_size = 0;
+	global_->max_io_queue_size = 0;
+	global_->roundRobin = 0;
+	global_->enqueued_tasks = 0;
+	global_->dedicated_tasks = 0;
+	global_->dispatched_to_private = 0;
+	global_->dispatched_to_global = 0;
+	global_->dequeued_from_private = 0;
+	global_->dequeued_from_global = 0;
+	global_->worker_waits = 0;
+
 	numComputeThreads_ = std::min(numRealCores * numLogicalCoresPerCpu, MAX_CORES_TO_USE);
 	// Double it for the IO blocking threads.
 	int numThreads = numComputeThreads_ + std::max(MIN_IO_BLOCKING_THREADS, numComputeThreads_);
@@ -238,7 +280,10 @@ void ThreadManager::Init(int numRealCores, int numLogicalCoresPerCpu) {
 }
 
 void ThreadManager::EnqueueTask(Task *task) {
+	global_->enqueued_tasks.fetch_add(1, std::memory_order_relaxed);
+
 	if (task->Type() == TaskType::DEDICATED_THREAD) {
+		global_->dedicated_tasks.fetch_add(1, std::memory_order_relaxed);
 		std::thread th([=](Task *task) {
 			SetCurrentThreadName("DedicatedThreadTask");
 			task->Run();
@@ -271,6 +316,7 @@ void ThreadManager::EnqueueTask(Task *task) {
 			std::unique_lock<std::mutex> lock(thread->mutex);
 			thread->private_queue[queueIndex].push_back(task);
 			thread->queue_size++;
+			global_->dispatched_to_private.fetch_add(1, std::memory_order_relaxed);
 			thread->cond.notify_one();
 			// Found it - done.
 			return;
@@ -283,13 +329,16 @@ void ThreadManager::EnqueueTask(Task *task) {
 		std::unique_lock<std::mutex> lock(global_->mutex);
 		if (task->Type() == TaskType::CPU_COMPUTE) {
 			global_->compute_queue[queueIndex].push_back(task);
-			global_->compute_queue_size++;
+			const int size = ++global_->compute_queue_size;
+			UpdateAtomicMax(global_->max_compute_queue_size, size);
 		} else if (task->Type() == TaskType::IO_BLOCKING) {
 			global_->io_queue[queueIndex].push_back(task);
-			global_->io_queue_size++;
+			const int size = ++global_->io_queue_size;
+			UpdateAtomicMax(global_->max_io_queue_size, size);
 		} else {
 			_assert_(false);
 		}
+		global_->dispatched_to_global.fetch_add(1, std::memory_order_relaxed);
 	}
 
 	int chosenIndex = global_->roundRobin++;
@@ -303,6 +352,7 @@ void ThreadManager::EnqueueTask(Task *task) {
 
 void ThreadManager::EnqueueTaskOnThread(int threadNum, Task *task) {
 	_assert_msg_(task->Type() != TaskType::DEDICATED_THREAD, "Dedicated thread tasks can't be put on specific threads");
+	global_->enqueued_tasks.fetch_add(1, std::memory_order_relaxed);
 
 	_assert_msg_(threadNum >= 0 && threadNum < (int)global_->threads_.size(), "Bad threadnum %d(/%d) or not initialized", threadNum, (int)global_->threads_.size());
 	TaskThreadContext *thread = global_->threads_[threadNum];
@@ -312,11 +362,28 @@ void ThreadManager::EnqueueTaskOnThread(int threadNum, Task *task) {
 
 	std::unique_lock<std::mutex> lock(thread->mutex);
 	thread->private_queue[queueIndex].push_back(task);
+	global_->dispatched_to_private.fetch_add(1, std::memory_order_relaxed);
 	thread->cond.notify_one();
 }
 
 int ThreadManager::GetNumLooperThreads() const {
 	return numComputeThreads_;
+}
+
+ThreadManagerStats ThreadManager::GetStats() const {
+	ThreadManagerStats stats{};
+	stats.computeQueueSize = global_->compute_queue_size.load(std::memory_order_relaxed);
+	stats.ioQueueSize = global_->io_queue_size.load(std::memory_order_relaxed);
+	stats.maxComputeQueueSize = global_->max_compute_queue_size.load(std::memory_order_relaxed);
+	stats.maxIOQueueSize = global_->max_io_queue_size.load(std::memory_order_relaxed);
+	stats.enqueuedTasks = global_->enqueued_tasks.load(std::memory_order_relaxed);
+	stats.dedicatedTasks = global_->dedicated_tasks.load(std::memory_order_relaxed);
+	stats.dispatchedToPrivate = global_->dispatched_to_private.load(std::memory_order_relaxed);
+	stats.dispatchedToGlobal = global_->dispatched_to_global.load(std::memory_order_relaxed);
+	stats.dequeuedFromPrivate = global_->dequeued_from_private.load(std::memory_order_relaxed);
+	stats.dequeuedFromGlobal = global_->dequeued_from_global.load(std::memory_order_relaxed);
+	stats.workerWaits = global_->worker_waits.load(std::memory_order_relaxed);
+	return stats;
 }
 
 void ThreadManager::TryCancelTask(uint64_t taskID) {
