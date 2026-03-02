@@ -152,14 +152,19 @@ void FrameTiming::ProcessFallbackThrottle(bool frameHandledThrottling) {
 		return;
 	}
 
-	float refreshRate = System_GetPropertyFloat(SYSPROP_DISPLAY_REFRESH_RATE);
-	if (refreshRate <= 1.0f) {
-		refreshRate = 60.0f;
-	}
-
 	double now = time_now_d();
+	// Avoid polling refresh rate every frame; update periodically in case display settings change.
+	if (lastRefreshRatePollTime_ == 0.0 || now - lastRefreshRatePollTime_ >= 1.0) {
+		cachedDisplayRefreshRate_ = System_GetPropertyFloat(SYSPROP_DISPLAY_REFRESH_RATE);
+		if (cachedDisplayRefreshRate_ <= 1.0f) {
+			cachedDisplayRefreshRate_ = 60.0f;
+		}
+		lastRefreshRatePollTime_ = now;
+	}
+	const double frameInterval = 1.0 / cachedDisplayRefreshRate_;
+
 	if (lastFallbackThrottleTime_ > 0.0) {
-		double nextFrameTime = lastFallbackThrottleTime_ + 1.0 / refreshRate;
+		double nextFrameTime = lastFallbackThrottleTime_ + frameInterval;
 		if (nextFrameTime > now) {
 			const double sleepTime = nextFrameTime - now;
 			WaitUntil(now, nextFrameTime, "fallback-throttle");

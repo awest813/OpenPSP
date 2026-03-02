@@ -30,6 +30,8 @@ private:
 	double waitUntil_ = 0.0;
 	double *curTimePtr_ = nullptr;
 	double lastFallbackThrottleTime_ = 0.0;
+	float cachedDisplayRefreshRate_ = 60.0f;
+	double lastRefreshRatePollTime_ = 0.0;
 };
 
 extern FrameTiming g_frameTiming;
