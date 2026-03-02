@@ -618,7 +618,15 @@ public:
 
 		// An early-return will result in the destructor running, where we can set
 		// flags like working and pending.
-		if (!info_->CreateLoader() || !info_->GetFileLoader() || !info_->GetFileLoader()->Exists()) {
+		if (!info_->CreateLoader()) {
+			std::unique_lock<std::mutex> lock(info_->lock);
+			info_->MarkReadyNoLock(flags_);
+			ERROR_LOG(Log::Loader, "Failed getting game info for %s", info_->GetFilePath().ToVisualString().c_str());
+			return;
+		}
+
+		auto sharedLoader = info_->GetFileLoader();
+		if (!sharedLoader || !sharedLoader->Exists()) {
 			// Mark everything requested as done, so 
 			std::unique_lock<std::mutex> lock(info_->lock);
 			info_->MarkReadyNoLock(flags_);
@@ -629,14 +637,14 @@ public:
 		std::string errorString;
 
 		if (flags_ & GameInfoFlags::FILE_TYPE) {
-			info_->fileType = Identify_File(info_->GetFileLoader().get(), &errorString);
+			info_->fileType = Identify_File(sharedLoader.get(), &errorString);
 		}
 
 		switch (info_->fileType) {
 		case IdentifiedFileType::PSP_PBP:
 		case IdentifiedFileType::PSP_PBP_DIRECTORY:
 			{
-				auto pbpLoader = info_->GetFileLoader();
+				auto pbpLoader = sharedLoader;
 				if (info_->fileType == IdentifiedFileType::PSP_PBP_DIRECTORY) {
 					Path ebootPath = ResolvePBPFile(gamePath_);
 					if (ebootPath != gamePath_) {
@@ -868,15 +876,14 @@ handleELF:
 				// Let's assume it's an ISO.
 				// TODO: This will currently read in the whole directory tree. Not really necessary for just a
 				// few files.
-				auto fl = info_->GetFileLoader();
-				if (!fl) {
+				if (!sharedLoader) {
 					// BAD! Can't win here.
 					ERROR_LOG(Log::Loader, "Failed getting game info for ISO %s", info_->GetFilePath().ToVisualString().c_str());
 					std::unique_lock<std::mutex> lock(info_->lock);
 					info_->MarkReadyNoLock(flags_);
 					return;
 				}
-				BlockDevice *bd = ConstructBlockDevice(info_->GetFileLoader().get(), &errorString);
+				BlockDevice *bd = ConstructBlockDevice(sharedLoader.get(), &errorString);
 				if (!bd) {
 					ERROR_LOG(Log::Loader, "Failed constructing block device for ISO %s: %s", info_->GetFilePath().ToVisualString().c_str(), errorString.c_str());
 					std::unique_lock<std::mutex> lock(info_->lock);
