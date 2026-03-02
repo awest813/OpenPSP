@@ -346,11 +346,11 @@ int MIPSState::RunLoopUntil(u64 globalTicks) {
 			// This normally should never take more than one step...
 			SingleStep();
 		}
-		insideJit = true;
-		if (hasPendingClears)
+		insideJit.store(true, std::memory_order_release);
+		if (hasPendingClears.load(std::memory_order_acquire))
 			ProcessPendingClears();
 		MIPSComp::jit->RunLoopUntil(globalTicks);
-		insideJit = false;
+		insideJit.store(false, std::memory_order_release);
 		break;
 
 	case CPUCore::INTERPRETER:
@@ -366,7 +366,7 @@ void MIPSState::ProcessPendingClears() {
 	std::lock_guard<std::recursive_mutex> guard(MIPSComp::jitLock);
 	if (!MIPSComp::jit) {
 		pendingClears.clear();
-		hasPendingClears = false;
+		hasPendingClears.store(false, std::memory_order_release);
 		return;
 	}
 
@@ -374,7 +374,7 @@ void MIPSState::ProcessPendingClears() {
 	if (clearAll) {
 		MIPSComp::jit->ClearCache();
 		pendingClears.clear();
-		hasPendingClears = false;
+		hasPendingClears.store(false, std::memory_order_release);
 		return;
 	}
 
@@ -382,7 +382,7 @@ void MIPSState::ProcessPendingClears() {
 		MIPSComp::jit->InvalidateCacheAt(p.first, p.second);
 	}
 	pendingClears.clear();
-	hasPendingClears = false;
+	hasPendingClears.store(false, std::memory_order_release);
 }
 
 void MIPSState::InvalidateICache(u32 address, int length) {
@@ -397,11 +397,11 @@ void MIPSState::InvalidateICache(u32 address, int length) {
 void MIPSState::ClearJitCache() {
 	std::lock_guard<std::recursive_mutex> guard(MIPSComp::jitLock);
 	if (MIPSComp::jit) {
-		if (coreState == CORE_RUNNING_CPU || insideJit) {
+		if (coreState == CORE_RUNNING_CPU || insideJit.load(std::memory_order_acquire)) {
 			if (std::find(pendingClears.begin(), pendingClears.end(), std::pair<u32, int>{0, 0}) == pendingClears.end()) {
 				pendingClears.emplace_back(0, 0);
 			}
-			hasPendingClears = true;
+			hasPendingClears.store(true, std::memory_order_release);
 			CoreTiming::ForceCheck();
 		} else {
 			MIPSComp::jit->ClearCache();

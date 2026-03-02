@@ -19,6 +19,7 @@
 
 #include "ppsspp_config.h"
 
+#include <atomic>
 #include <cstddef>
 
 #include "Common/CommonTypes.h"
@@ -267,8 +268,8 @@ public:
 	void ProcessPendingClears();
 
 	// Doesn't need save stating.
-	volatile bool insideJit = false;
-	volatile bool hasPendingClears = false;
+	std::atomic<bool> insideJit{ false };
+	std::atomic<bool> hasPendingClears{ false };
 };
 
 class MIPSDebugInterface;
