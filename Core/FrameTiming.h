@@ -24,11 +24,11 @@ public:
 
 private:
 	// For use on the next Present. These two are set by ComputePresentMode.
-	Draw::PresentMode presentMode_;
-	bool fastForwardSkipFlip_;
+	Draw::PresentMode presentMode_ = Draw::PresentMode::FIFO;
+	bool fastForwardSkipFlip_ = true;
 
-	double waitUntil_;
-	double *curTimePtr_;
+	double waitUntil_ = 0.0;
+	double *curTimePtr_ = nullptr;
 	double lastFallbackThrottleTime_ = 0.0;
 };
 

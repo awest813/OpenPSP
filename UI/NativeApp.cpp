@@ -1067,8 +1067,10 @@ void NativeFrame(GraphicsContext *graphicsContext) {
 	// Apply the UIContext bounds as a 2D transformation matrix.
 	Matrix4x4 ortho = ComputeOrthoMatrix(g_display.dp_xres, g_display.dp_yres, graphicsContext->GetDrawContext()->GetDeviceCaps().coordConvention);
 
-	// Can be overridden by sceDisplay which may pass true for the second argument.
-	g_frameTiming.ComputePresentMode(g_draw, false);
+	// In-game timing/present mode is managed by sceDisplay. Menu/background screens use a simple mode.
+	if (GetUIState() != UISTATE_INGAME) {
+		g_frameTiming.ComputePresentMode(g_draw, false);
+	}
 
 	ui_draw2d.PushDrawMatrix(ortho);
 
