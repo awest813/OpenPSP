@@ -174,6 +174,9 @@ public:
 	u64 installDataSize = 0;
 	std::vector<Path> saveDataDirectoriesCache;
 	double saveDataDirectoriesCacheTime = 0.0;
+	u64 savedataSizeCache = 0;
+	u64 installSizeCache = 0;
+	double savedataSizeCacheTime = 0.0;
 
 	std::string errorString;
 

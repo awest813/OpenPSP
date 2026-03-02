@@ -359,10 +359,22 @@ void GameInfo::GetSavedataAndInstallSizesInBytes(u64 *savedataSize, u64 *install
 	if (fileType == IdentifiedFileType::PSP_SAVEDATA_DIRECTORY || fileType == IdentifiedFileType::PPSSPP_SAVESTATE) {
 		return;
 	}
+
+	{
+		std::lock_guard<std::mutex> guard(lock);
+		if (savedataSizeCacheTime != 0.0 && time_now_d() - savedataSizeCacheTime < 2.0) {
+			*savedataSize = savedataSizeCache;
+			*installSize = installSizeCache;
+			return;
+		}
+	}
+
 	std::vector<Path> saveDataDir = GetSaveDataDirectories();
 
-	u64 filesSizeInDir = 0;
+	u64 computedSavedataSize = 0;
+	u64 computedInstallSize = 0;
 	for (size_t j = 0; j < saveDataDir.size(); j++) {
+		u64 filesSizeInDir = 0;
 		std::vector<File::FileInfo> fileInfo;
 		File::GetFilesInDir(saveDataDir[j], &fileInfo);
 		for (auto const &file : fileInfo) {
@@ -371,13 +383,22 @@ void GameInfo::GetSavedataAndInstallSizesInBytes(u64 *savedataSize, u64 *install
 		}
 		if (filesSizeInDir < 0xA00000) {
 			// HACK: Generally the savedata size in a dir shouldn't be more than 10MB.
-			*savedataSize += filesSizeInDir;
+			computedSavedataSize += filesSizeInDir;
 		} else {
 			// HACK: Large data in savedata directories is likely install data.
-			*installSize += filesSizeInDir;
+			computedInstallSize += filesSizeInDir;
 		}
-		filesSizeInDir = 0;
 	}
+
+	{
+		std::lock_guard<std::mutex> guard(lock);
+		savedataSizeCache = computedSavedataSize;
+		installSizeCache = computedInstallSize;
+		savedataSizeCacheTime = time_now_d();
+	}
+
+	*savedataSize = computedSavedataSize;
+	*installSize = computedInstallSize;
 }
 
 bool GameInfo::CreateLoader() {
@@ -426,6 +447,9 @@ void GameInfo::ParseParamSFO(IdentifiedFileType type) {
 	title = paramSFO.GetValueString("TITLE");
 	saveDataDirectoriesCache.clear();
 	saveDataDirectoriesCacheTime = 0.0;
+	savedataSizeCache = 0;
+	installSizeCache = 0;
+	savedataSizeCacheTime = 0.0;
 	if (type != IdentifiedFileType::PSP_UMD_VIDEO_ISO) {
 		id = paramSFO.GetValueString("DISC_ID");
 		id_version = id + "_" + paramSFO.GetValueString("DISC_VERSION");
