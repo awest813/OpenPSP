@@ -17,6 +17,7 @@
 
 #pragma once
 
+#include <atomic>
 #include <cstdint>
 #include <string>
 #include <string_view>
@@ -148,7 +149,7 @@ bool Core_GetPowerSaving();
 void Core_RunLoopUntil(u64 globalticks);
 
 extern volatile CoreState coreState;
-extern volatile bool coreStatePending;
+extern std::atomic<bool> coreStatePending;
 
 void Core_UpdateState(CoreState newState);
 

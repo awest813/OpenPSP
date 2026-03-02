@@ -77,7 +77,7 @@ static std::set<CoreLifecycleFunc> lifecycleFuncs;
 volatile CoreState coreState = CORE_POWERDOWN;
 CoreState preGeCoreState = CORE_POWERDOWN;
 // If true, core state has been changed, but JIT has probably not noticed yet.
-volatile bool coreStatePending = false;
+std::atomic<bool> coreStatePending{ false };
 
 static bool powerSaving = false;
 static bool g_breakAfterFrame = false;
@@ -161,7 +161,7 @@ void Core_Stop() {
 void Core_UpdateState(CoreState newState) {
 	const CoreState state = coreState;
 	if ((state == CORE_RUNNING_CPU || state == CORE_NEXTFRAME) && newState != CORE_RUNNING_CPU)
-		coreStatePending = true;
+		coreStatePending.store(true, std::memory_order_release);
 	coreState = newState;
 }
 
@@ -172,18 +172,17 @@ bool Core_IsStepping() {
 
 bool Core_IsActive() {
 	const CoreState state = coreState;
-	return state == CORE_RUNNING_CPU || state == CORE_NEXTFRAME || coreStatePending;
+	return state == CORE_RUNNING_CPU || state == CORE_NEXTFRAME || coreStatePending.load(std::memory_order_acquire);
 }
 
 bool Core_IsInactive() {
 	const CoreState state = coreState;
-	return state != CORE_RUNNING_CPU && state != CORE_NEXTFRAME && !coreStatePending;
+	return state != CORE_RUNNING_CPU && state != CORE_NEXTFRAME && !coreStatePending.load(std::memory_order_acquire);
 }
 
 void Core_StateProcessed() {
-	if (coreStatePending) {
+	if (coreStatePending.exchange(false, std::memory_order_acq_rel)) {
 		std::lock_guard<std::mutex> guard(m_hInactiveMutex);
-		coreStatePending = false;
 		m_InactiveCond.notify_all();
 	}
 }
