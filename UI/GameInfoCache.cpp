@@ -292,12 +292,27 @@ std::vector<Path> GameInfo::GetSaveDataDirectories() {
 }
 
 u64 GameInfo::GetGameSavedataSizeInBytes() {
+	u64 savedataSize = 0;
+	u64 installSize = 0;
+	GetSavedataAndInstallSizesInBytes(&savedataSize, &installSize);
+	return savedataSize;
+}
+
+u64 GameInfo::GetInstallDataSizeInBytes() {
+	u64 savedataSize = 0;
+	u64 installSize = 0;
+	GetSavedataAndInstallSizesInBytes(&savedataSize, &installSize);
+	return installSize;
+}
+
+void GameInfo::GetSavedataAndInstallSizesInBytes(u64 *savedataSize, u64 *installSize) {
+	*savedataSize = 0;
+	*installSize = 0;
 	if (fileType == IdentifiedFileType::PSP_SAVEDATA_DIRECTORY || fileType == IdentifiedFileType::PPSSPP_SAVESTATE) {
-		return 0;
+		return;
 	}
 	std::vector<Path> saveDataDir = GetSaveDataDirectories();
 
-	u64 totalSize = 0;
 	u64 filesSizeInDir = 0;
 	for (size_t j = 0; j < saveDataDir.size(); j++) {
 		std::vector<File::FileInfo> fileInfo;
@@ -308,38 +323,13 @@ u64 GameInfo::GetGameSavedataSizeInBytes() {
 		}
 		if (filesSizeInDir < 0xA00000) {
 			// HACK: Generally the savedata size in a dir shouldn't be more than 10MB.
-			totalSize += filesSizeInDir;
+			*savedataSize += filesSizeInDir;
+		} else {
+			// HACK: Large data in savedata directories is likely install data.
+			*installSize += filesSizeInDir;
 		}
 		filesSizeInDir = 0;
 	}
-	return totalSize;
-}
-
-u64 GameInfo::GetInstallDataSizeInBytes() {
-	if (fileType == IdentifiedFileType::PSP_SAVEDATA_DIRECTORY || fileType == IdentifiedFileType::PPSSPP_SAVESTATE) {
-		return 0;
-	}
-	std::vector<Path> saveDataDir = GetSaveDataDirectories();
-
-	u64 totalSize = 0;
-	u64 filesSizeInDir = 0;
-	for (size_t j = 0; j < saveDataDir.size(); j++) {
-		std::vector<File::FileInfo> fileInfo;
-		File::GetFilesInDir(saveDataDir[j], &fileInfo);
-		for (auto const &file : fileInfo) {
-			// TODO: Might want to recurse here? Don't know games that use directories
-			// for install-data though.
-			if (!file.isDirectory)
-				filesSizeInDir += file.size;
-		}
-		if (filesSizeInDir >= 0xA00000) { 
-			// HACK: Generally the savedata size in a dir shouldn't be more than 10MB.
-			// This is probably GameInstall data.
-			totalSize += filesSizeInDir;
-		}
-		filesSizeInDir = 0;
-	}
-	return totalSize;
 }
 
 bool GameInfo::CreateLoader() {
@@ -976,9 +966,12 @@ handleELF:
 			case IdentifiedFileType::PSP_PBP:
 			case IdentifiedFileType::PSP_PBP_DIRECTORY:
 			{
+				u64 saveDataSize = 0;
+				u64 installDataSize = 0;
+				info_->GetSavedataAndInstallSizesInBytes(&saveDataSize, &installDataSize);
 				std::lock_guard<std::mutex> lock(info_->lock);
-				info_->saveDataSize = info_->GetGameSavedataSizeInBytes();
-				info_->installDataSize = info_->GetInstallDataSizeInBytes();
+				info_->saveDataSize = saveDataSize;
+				info_->installDataSize = installDataSize;
 				break;
 			}
 			default:

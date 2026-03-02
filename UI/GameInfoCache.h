@@ -92,6 +92,7 @@ public:
 	u64 GetSizeOnDiskInBytes();
 	u64 GetGameSavedataSizeInBytes();  // For games
 	u64 GetInstallDataSizeInBytes();
+	void GetSavedataAndInstallSizesInBytes(u64 *savedataSize, u64 *installSize);
 
 	// For various kinds of savedata, mainly.
 	// NOTE: This one actually performs I/O directly, not cached.
