@@ -1265,7 +1265,9 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst) {
 			}
 			break;
 
-		case IROp::Nop: // TODO: This shouldn't crash, but for now we should not emit nops, so...
+		case IROp::Nop:
+			// Explicit no-op.
+			break;
 		case IROp::Bad:
 		default:
 			// Unimplemented IR op. Bad. We define it as unreachable so the compiler can optimize better (remove the range check).
