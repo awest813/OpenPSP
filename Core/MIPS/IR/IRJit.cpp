@@ -102,8 +102,9 @@ void IRJit::InvalidateCacheAt(u32 em_address, int length) {
 
 	for (int block_num : numbers) {
 		auto block = blocks_.GetBlock(block_num);
-		// TODO: We are invalidating a lot of blocks that are already invalid (yu gi oh).
-		// INFO_LOG(Log::JIT, "Block at %08x invalidated: valid: %d", block->GetOriginalStart(), block->IsValid());
+		if (!block->IsValid()) {
+			continue;
+		}
 		// If we're a native JIT (IR->JIT, not just IR interpreter), we write native offsets into the blocks.
 		int cookie = compileToNative_ ? block->GetNativeOffset() : block->GetIRArenaOffset();
 		blocks_.RemoveBlockFromPageLookup(block_num);
