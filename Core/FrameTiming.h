@@ -13,6 +13,7 @@ public:
 	void DeferWaitUntil(double until, double *curTimePtr);
 	void PostSubmit();
 	void ComputePresentMode(Draw::DrawContext *draw, bool fastForward);
+	void ProcessFallbackThrottle(bool frameHandledThrottling);
 
 	bool FastForwardNeedsSkipFlip() const {
 		return fastForwardSkipFlip_;
@@ -28,6 +29,7 @@ private:
 
 	double waitUntil_;
 	double *curTimePtr_;
+	double lastFallbackThrottleTime_ = 0.0;
 };
 
 extern FrameTiming g_frameTiming;

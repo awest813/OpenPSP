@@ -24,6 +24,7 @@
 #include "Common/Profiler/Profiler.h"
 #include "Common/Log.h"
 #include "Common/System/Display.h"
+#include "Common/System/System.h"
 #include "Common/TimeUtil.h"
 
 #include "Core/RetroAchievements.h"
@@ -139,4 +140,30 @@ void FrameTiming::ComputePresentMode(Draw::DrawContext *draw, bool fastForward) 
 	// Finally, fallback to FIFO mode, with skip-flip in fast-forward.
 	presentMode_ = Draw::PresentMode::FIFO;
 	fastForwardSkipFlip_ = true;
+}
+
+void FrameTiming::ProcessFallbackThrottle(bool frameHandledThrottling) {
+	if (frameHandledThrottling) {
+		// Game screen or another screen handled timing on its own.
+		lastFallbackThrottleTime_ = 0.0;
+		return;
+	}
+
+	float refreshRate = System_GetPropertyFloat(SYSPROP_DISPLAY_REFRESH_RATE);
+	if (refreshRate <= 1.0f) {
+		refreshRate = 60.0f;
+	}
+
+	double now = time_now_d();
+	if (lastFallbackThrottleTime_ > 0.0) {
+		double nextFrameTime = lastFallbackThrottleTime_ + 1.0 / refreshRate;
+		if (nextFrameTime > now) {
+			const double sleepTime = nextFrameTime - now;
+			WaitUntil(now, nextFrameTime, "fallback-throttle");
+			DisplayNotifySleep(sleepTime, -1);
+			now = nextFrameTime;
+		}
+	}
+
+	lastFallbackThrottleTime_ = now;
 }

@@ -1132,30 +1132,9 @@ void NativeFrame(GraphicsContext *graphicsContext) {
 	if (!(renderFlags & ScreenRenderFlags::HANDLED_THROTTLING)) {
 		// TODO: We should ideally mix this with game audio.
 		g_BackgroundAudio.Play();
-
-		float refreshRate = System_GetPropertyFloat(SYSPROP_DISPLAY_REFRESH_RATE);
-		static double lastTime = 0.0;
-		if (lastTime > 0.0) {
-			double now = time_now_d();
-			// Simple throttling to not burn the GPU in the menu.
-			// TODO: This should move into NativeFrame.
-			double diffTime = now - lastTime;
-			int sleepTimeUs = (int)(1000000 * ((1.0 / refreshRate) - diffTime));
-			// printf("sleep: %0.3f ms (diff: %0.3f) %f\n", (double)sleepTimeUs / 1000, diffTime * 1000.0, refreshRate);
-
-			// If presentation mode is FIFO, we don't need to sleep a lot, we'll be throttled by
-			// presentation. But still, let's sleep a bit.
-			// Actually, for some reason this increases latency a lot, to the degree that the UI
-			// gets hard to use.. Commenting out for now.
-			// if (g_frameTiming.PresentMode() == Draw::PresentMode::FIFO) {
-			//    sleepTimeUs = std::min(2000, sleepTimeUs); // 2 ms
-			// }
-
-			if (sleepTimeUs > 0)
-				sleep_us(sleepTimeUs, "fallback-throttle");
-		}
-		lastTime = time_now_d();
 	}
+
+	g_frameTiming.ProcessFallbackThrottle((renderFlags & ScreenRenderFlags::HANDLED_THROTTLING) != 0);
 }
 
 bool HandleGlobalMessage(UIMessage message, const std::string &value) {
