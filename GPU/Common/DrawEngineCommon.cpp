@@ -1125,11 +1125,11 @@ void DrawEngineCommon::DepthRasterPredecoded(GEPrimitiveType prim, const void *i
 	depthIndexCount_ += vertexCount;
 	depthVertexCount_ += numDecoded;
 
-	depthDraws_.push_back(draw);
-
 	if (depthDraws_.empty()) {
 		rasterTimeStart_ = time_now_d();
 	}
+
+	depthDraws_.push_back(draw);
 	// FlushQueuedDepth();
 }
 
