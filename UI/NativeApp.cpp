@@ -239,8 +239,9 @@ static bool CheckFontIsUsable(const wchar_t *fontFace) {
 #endif
 
 void PostLoadConfig() {
-	if (g_Config.currentDirectory.empty()) {
-		g_Config.currentDirectory = g_Config.defaultCurrentDirectory;
+	const auto pathSettings = g_Config.GetRuntimePathSettings();
+	if (pathSettings.currentDirectory.empty()) {
+		g_Config.currentDirectory = pathSettings.defaultCurrentDirectory;
 	}
 	g_i18nrepo.LoadIni(g_Config.sLanguageIni);
 
@@ -408,7 +409,8 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 
 	g_Config.flash0Directory = Path(external_dir) / "flash0";
 
-	Path memstickDirFile = g_Config.internalDataDirectory / "memstick_dir.txt";
+	const auto pathSettings = g_Config.GetRuntimePathSettings();
+	Path memstickDirFile = pathSettings.internalDataDirectory / "memstick_dir.txt";
 	if (File::Exists(memstickDirFile)) {
 		INFO_LOG(Log::System, "Reading '%s' to find memstick dir.", memstickDirFile.c_str());
 		std::string memstickDir;
@@ -435,7 +437,8 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 		CreateSysDirectories();
 	}
 #elif PPSSPP_PLATFORM(UWP) && !defined(__LIBRETRO__)
-	Path memstickDirFile = g_Config.internalDataDirectory / "memstick_dir.txt";
+	const auto pathSettings = g_Config.GetRuntimePathSettings();
+	Path memstickDirFile = pathSettings.internalDataDirectory / "memstick_dir.txt";
 	if (File::Exists(memstickDirFile)) {
 		INFO_LOG(Log::System, "Reading '%s' to find memstick dir.", memstickDirFile.c_str());
 		std::string memstickDir;
@@ -485,13 +488,14 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 	}
 #endif
 
-	if (g_Config.currentDirectory.empty()) {
-		g_Config.currentDirectory = g_Config.defaultCurrentDirectory;
+	const auto pathSettings = g_Config.GetRuntimePathSettings();
+	if (pathSettings.currentDirectory.empty()) {
+		g_Config.currentDirectory = pathSettings.defaultCurrentDirectory;
 	}
 
 	if (cache_dir && strlen(cache_dir)) {
 		g_Config.appCacheDirectory = Path(cache_dir);
-		DiskCachingFileLoaderCache::SetCacheDir(g_Config.appCacheDirectory);
+		DiskCachingFileLoaderCache::SetCacheDir(g_Config.GetRuntimePathSettings().appCacheDirectory);
 	}
 
 	g_logManager.Init(&g_Config.bEnableLogging);
@@ -705,7 +709,7 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 
 	DEBUG_LOG(Log::System, "ScreenManager!");
 	g_screenManager = new ScreenManager();
-	if (g_Config.memStickDirectory.empty()) {
+	if (g_Config.GetRuntimePathSettings().memStickDirectory.empty()) {
 		INFO_LOG(Log::System, "No memstick directory! Asking for one to be configured.");
 		g_screenManager->switchScreen(new LogoScreen(AfterLogoScreen::MEMSTICK_SCREEN_INITIAL_SETUP));
 	} else if (gotoGameSettings) {

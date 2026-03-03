@@ -254,6 +254,14 @@ public:
 		bool invertTiltX;
 		bool invertTiltY;
 	};
+	struct RuntimePathSettings {
+		Path currentDirectory;
+		Path defaultCurrentDirectory;
+		Path memStickDirectory;
+		Path internalDataDirectory;
+		Path flash0Directory;
+		Path appCacheDirectory;
+	};
 	struct RuntimeWindowLayoutSettings {
 		bool shrinkIfWindowSmall;
 		int uiScaleFactor;
@@ -370,6 +378,16 @@ public:
 			iTiltSensitivityY,
 			bInvertTiltX,
 			bInvertTiltY,
+		};
+	}
+	RuntimePathSettings GetRuntimePathSettings() const {
+		return RuntimePathSettings{
+			currentDirectory,
+			defaultCurrentDirectory,
+			memStickDirectory,
+			internalDataDirectory,
+			flash0Directory,
+			appCacheDirectory,
 		};
 	}
 	RuntimeWindowLayoutSettings GetRuntimeWindowLayoutSettings() const {
