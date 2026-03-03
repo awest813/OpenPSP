@@ -224,6 +224,10 @@ public:
 		int skipGPUReadbackMode;
 		int gpuBackend;
 	};
+	struct RuntimeMemoryAccessSettings {
+		int cpuCore;
+		bool ignoreBadMemAccess;
+	};
 
 	~Config();
 
@@ -298,6 +302,12 @@ public:
 			iInternalResolution,
 			iSkipGPUReadbackMode,
 			iGPUBackend,
+		};
+	}
+	RuntimeMemoryAccessSettings GetRuntimeMemoryAccessSettings() const {
+		return RuntimeMemoryAccessSettings{
+			iCpuCore,
+			bIgnoreBadMemAccess,
 		};
 	}
 

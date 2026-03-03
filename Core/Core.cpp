@@ -553,14 +553,15 @@ const char *ExecExceptionTypeAsString(ExecExceptionType type) {
 
 void Core_MemoryException(u32 address, u32 accessSize, u32 pc, MemoryExceptionType type) {
 	const char *desc = MemoryExceptionTypeAsString(type);
+	const auto memorySettings = g_Config.GetRuntimeMemoryAccessSettings();
 	// In jit, we only flush PC when bIgnoreBadMemAccess is off.
-	if ((g_Config.iCpuCore == (int)CPUCore::JIT || g_Config.iCpuCore == (int)CPUCore::JIT_IR) && g_Config.bIgnoreBadMemAccess) {
+	if ((memorySettings.cpuCore == (int)CPUCore::JIT || memorySettings.cpuCore == (int)CPUCore::JIT_IR) && memorySettings.ignoreBadMemAccess) {
 		WARN_LOG(Log::MemMap, "%s: Invalid access at %08x (size %08x)", desc, address, accessSize);
 	} else {
 		WARN_LOG(Log::MemMap, "%s: Invalid access at %08x (size %08x) PC %08x LR %08x", desc, address, accessSize, currentMIPS->pc, currentMIPS->r[MIPS_REG_RA]);
 	}
 
-	if (!g_Config.bIgnoreBadMemAccess) {
+	if (!memorySettings.ignoreBadMemAccess) {
 		// Try to fetch a call stack, to start with.
 		std::vector<MIPSStackWalk::StackFrame> stackFrames = WalkCurrentStack(-1);
 		std::string stackTrace = FormatStackTrace(stackFrames);
@@ -581,14 +582,15 @@ void Core_MemoryException(u32 address, u32 accessSize, u32 pc, MemoryExceptionTy
 
 void Core_MemoryExceptionInfo(u32 address, u32 accessSize, u32 pc, MemoryExceptionType type, std::string_view additionalInfo, bool forceReport) {
 	const char *desc = MemoryExceptionTypeAsString(type);
+	const auto memorySettings = g_Config.GetRuntimeMemoryAccessSettings();
 	// In jit, we only flush PC when bIgnoreBadMemAccess is off.
-	if ((g_Config.iCpuCore == (int)CPUCore::JIT || g_Config.iCpuCore == (int)CPUCore::JIT_IR) && g_Config.bIgnoreBadMemAccess) {
+	if ((memorySettings.cpuCore == (int)CPUCore::JIT || memorySettings.cpuCore == (int)CPUCore::JIT_IR) && memorySettings.ignoreBadMemAccess) {
 		WARN_LOG(Log::MemMap, "%s: Invalid access at %08x (size %08x). %.*s", desc, address, accessSize, (int)additionalInfo.length(), additionalInfo.data());
 	} else {
 		WARN_LOG(Log::MemMap, "%s: Invalid access at %08x (size %08x) PC %08x LR %08x %.*s", desc, address, accessSize, currentMIPS->pc, currentMIPS->r[MIPS_REG_RA], (int)additionalInfo.length(), additionalInfo.data());
 	}
 
-	if (!g_Config.bIgnoreBadMemAccess || forceReport) {
+	if (!memorySettings.ignoreBadMemAccess || forceReport) {
 		// Try to fetch a call stack, to start with.
 		std::vector<MIPSStackWalk::StackFrame> stackFrames = WalkCurrentStack(-1);
 		std::string stackTrace = FormatStackTrace(stackFrames);
@@ -634,7 +636,8 @@ void Core_BreakException(u32 pc) {
 	e.info.clear();
 	e.pc = pc;
 
-	if (!g_Config.bIgnoreBadMemAccess) {
+	const auto memorySettings = g_Config.GetRuntimeMemoryAccessSettings();
+	if (!memorySettings.ignoreBadMemAccess) {
 		Core_Break(BreakReason::BreakInstruction, currentMIPS->pc);
 	}
 }
