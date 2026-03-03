@@ -400,7 +400,8 @@ static bool CPU_Init(FileLoader *fileLoader, IdentifiedFileType type, std::strin
 
 	// If it was forced on the command line. We don't want to override that.
 	g_fileLoggingWasEnabled = g_logManager.GetOutputsEnabled() & LogOutput::File;
-	g_logManager.EnableOutput(LogOutput::File, g_Config.bEnableFileLogging || g_fileLoggingWasEnabled);
+	const auto debugOutputSettings = g_Config.GetRuntimeDebugOutputSettings();
+	g_logManager.EnableOutput(LogOutput::File, debugOutputSettings.enableFileLogging || g_fileLoggingWasEnabled);
 
 	if ((g_logManager.GetOutputsEnabled() & LogOutput::File) && !g_logManager.GetLogFilePath().empty()) {
 		auto dev = GetI18NCategory(I18NCat::DEVELOPER);
@@ -810,7 +811,8 @@ const char *DumpFileTypeToFileExtension(DumpFileType type) {
 }
 
 void DumpFileIfEnabled(const u8 *dataPtr, const u32 length, std::string_view name, DumpFileType type) {
-	if (!(g_Config.iDumpFileTypes & (int)type)) {
+	const auto debugOutputSettings = g_Config.GetRuntimeDebugOutputSettings();
+	if (!(debugOutputSettings.dumpFileTypes & (int)type)) {
 		return;
 	}
 	if (!dataPtr) {

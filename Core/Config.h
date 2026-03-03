@@ -238,6 +238,10 @@ public:
 		bool cacheFullIsoInRam;
 		bool funcHashMap;
 	};
+	struct RuntimeDebugOutputSettings {
+		bool enableFileLogging;
+		int dumpFileTypes;
+	};
 
 	~Config();
 
@@ -330,6 +334,12 @@ public:
 			bAutoSaveSymbolMap,
 			bCacheFullIsoInRam,
 			bFuncHashMap,
+		};
+	}
+	RuntimeDebugOutputSettings GetRuntimeDebugOutputSettings() const {
+		return RuntimeDebugOutputSettings{
+			bEnableFileLogging,
+			iDumpFileTypes,
 		};
 	}
 
