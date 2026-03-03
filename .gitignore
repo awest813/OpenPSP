@@ -91,6 +91,7 @@ __testfinish.txt
 __testfailure.bmp
 __testcompare.png
 GameLogNotes.txt
+__pycache__/
 screenshots
 android/assets/lang
 android/assets/flash0
@@ -151,3 +152,6 @@ RAPrefs_PPSSPP.cfg
 cmake-build-*/
 
 /.vscode/
+
+# Perf tooling generated artifacts
+perf-report*.json
