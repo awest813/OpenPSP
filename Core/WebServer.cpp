@@ -191,7 +191,8 @@ static std::string RemotePathForRecent(const std::string &filename) {
 }
 
 static Path LocalFromRemotePath(std::string_view path) {
-	switch ((RemoteISOShareType)g_Config.iRemoteISOShareType) {
+	const auto networkSettings = g_Config.GetRuntimeNetworkSettings();
+	switch ((RemoteISOShareType)networkSettings.remoteISOShareType) {
 	case RemoteISOShareType::RECENT:
 		for (const std::string &filename : g_recentFiles.GetRecentFiles()) {
 			std::string basename = RemotePathForRecent(filename);
@@ -216,7 +217,7 @@ static Path LocalFromRemotePath(std::string_view path) {
 		if (decoded.find("/..") != std::string::npos) {
 			return Path();
 		}
-		return Path(g_Config.sRemoteISOSharedDir) / decoded;
+		return Path(networkSettings.remoteISOSharedDir) / decoded;
 	}
 	default:
 		return Path();
@@ -287,7 +288,8 @@ static void HandleListing(const http::ServerRequest &request) {
 	request.WriteHttpResponseHeader("1.0", 200, -1, "text/plain");
 	request.Out()->Printf("/\n");
 	if (serverFlags & WebServerFlags::DISCS) {
-		switch ((RemoteISOShareType)g_Config.iRemoteISOShareType) {
+		const auto networkSettings = g_Config.GetRuntimeNetworkSettings();
+		switch ((RemoteISOShareType)networkSettings.remoteISOShareType) {
 		case RemoteISOShareType::RECENT:
 			// List the current discs in their recent order.
 			for (const std::string &filename : g_recentFiles.GetRecentFiles()) {
@@ -763,7 +765,8 @@ static void WebServerThread() {
 	http->RegisterHandler("/debugger", &ForwardDebuggerRequest);
 	http->RegisterHandler("/upload_file", &HandleUploadPost);
 
-	if (!http->Listen(g_Config.iRemoteISOPort, "debugger-webserver")) {
+	const auto networkSettings = g_Config.GetRuntimeNetworkSettings();
+	if (!http->Listen(networkSettings.remoteISOPort, "debugger-webserver")) {
 		if (!http->Listen(0, "debugger-webserver")) {
 			ERROR_LOG(Log::FileSystem, "Unable to listen on any port (debugger - webserver)");
 			UpdateStatus(ServerStatus::FINISHED);
@@ -777,7 +780,7 @@ static void WebServerThread() {
 	RegisterServer(http->Port());
 	double lastRegister = time_now_d();
 
-	INFO_LOG(Log::HTTP, "Entering web server loop. Listening on port %d", g_Config.iRemoteISOPort);
+	INFO_LOG(Log::HTTP, "Entering web server loop. Listening on port %d", g_Config.GetRuntimeNetworkSettings().remoteISOPort);
 	while (RetrieveStatus() == ServerStatus::RUNNING) {
 		constexpr double webServerSliceSeconds = 0.2f;
 		http->RunSlice(webServerSliceSeconds);
@@ -863,5 +866,5 @@ bool WebServerRunning(WebServerFlags flags) {
 }
 
 int WebServerPort() {
-	return g_Config.iRemoteISOPort;
+	return g_Config.GetRuntimeNetworkSettings().remoteISOPort;
 }

@@ -209,6 +209,11 @@ public:
 		int gpuBackend;
 		std::string failedGPUBackends;
 	};
+	struct RuntimeNetworkSettings {
+		int remoteISOShareType;
+		std::string remoteISOSharedDir;
+		int remoteISOPort;
+	};
 	struct RuntimeDrawEngineSettings {
 		bool vertexDecoderJit;
 		int cpuCore;
@@ -335,6 +340,13 @@ public:
 		return RuntimeGPUBackendFailureSettings{
 			iGPUBackend,
 			sFailedGPUBackends,
+		};
+	}
+	RuntimeNetworkSettings GetRuntimeNetworkSettings() const {
+		return RuntimeNetworkSettings{
+			iRemoteISOShareType,
+			sRemoteISOSharedDir,
+			iRemoteISOPort,
 		};
 	}
 	RuntimeDrawEngineSettings GetRuntimeDrawEngineSettings() const {
