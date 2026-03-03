@@ -229,6 +229,8 @@ def main():
   parser.add_argument("--bench-runs", type=int, default=None, help="Override bench run count")
   parser.add_argument("--bench-repetitions", type=int, default=None, help="Override bench repetitions")
   parser.add_argument("--continue-on-profile-error", action="store_true", help="Continue and return success even if one profile fails")
+  parser.add_argument("--max-backend-fallbacks", type=int, default=None, help="Fail if backend fallback sample count exceeds this value")
+  parser.add_argument("--max-cpu-fallbacks", type=int, default=None, help="Fail if CPU fallback sample count exceeds this value")
   args = parser.parse_args()
 
   config = load_config(args.config)
@@ -265,6 +267,10 @@ def main():
   rows = collect_rows(profile_results)
   combined["backend_fallbacks"] = detect_backend_fallbacks(rows)
   combined["cpu_fallbacks"] = detect_cpu_fallbacks(rows)
+  combined["fallback_thresholds"] = {
+    "max_backend_fallbacks": args.max_backend_fallbacks,
+    "max_cpu_fallbacks": args.max_cpu_fallbacks,
+  }
 
   ensure_directory(args.output)
   with open(args.output, "w") as f:
@@ -273,8 +279,14 @@ def main():
   print("Wrote combined report to {}".format(args.output))
   if combined["backend_fallbacks"]:
     print("Detected {} backend fallback sample(s).".format(len(combined["backend_fallbacks"])))
+  if args.max_backend_fallbacks is not None and len(combined["backend_fallbacks"]) > args.max_backend_fallbacks:
+    print("Backend fallback threshold exceeded: {} > {}".format(len(combined["backend_fallbacks"]), args.max_backend_fallbacks))
+    overall_returncode = overall_returncode or 3
   if combined["cpu_fallbacks"]:
     print("Detected {} CPU fallback sample(s).".format(len(combined["cpu_fallbacks"])))
+  if args.max_cpu_fallbacks is not None and len(combined["cpu_fallbacks"]) > args.max_cpu_fallbacks:
+    print("CPU fallback threshold exceeded: {} > {}".format(len(combined["cpu_fallbacks"]), args.max_cpu_fallbacks))
+    overall_returncode = overall_returncode or 3
   if args.csv_output:
     write_csv_report(args.csv_output, rows)
     print("Wrote CSV report to {}".format(args.csv_output))

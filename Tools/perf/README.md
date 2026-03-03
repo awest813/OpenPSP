@@ -78,6 +78,12 @@ Run software + GLES candidates and keep going if one profile is unavailable:
 python3 Tools/perf/bench_runner.py --profile ci-software --profile ci-gles --bench-runs 10 --bench-repetitions 1 --continue-on-profile-error --output perf-report-ci.json --csv-output perf-report-ci.csv
 ```
 
+Optionally enforce maximum fallback counts in a run:
+
+```bash
+python3 Tools/perf/bench_runner.py --profile ci-software --bench-runs 10 --bench-repetitions 1 --max-backend-fallbacks 0 --max-cpu-fallbacks 0 --output perf-report-ci.json
+```
+
 ## Comparing two reports
 
 Create a baseline and candidate report, then compare:
