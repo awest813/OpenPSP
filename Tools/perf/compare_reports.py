@@ -2,6 +2,7 @@
 
 import argparse
 import json
+import os
 import sys
 
 
@@ -38,6 +39,12 @@ def percent_change(old_value, new_value):
   return ((new_value - old_value) / old_value) * 100.0
 
 
+def ensure_directory(path):
+  directory = os.path.dirname(path)
+  if directory and not os.path.exists(directory):
+    os.makedirs(directory)
+
+
 def main():
   parser = argparse.ArgumentParser(description="Compare two PPSSPP perf reports")
   parser.add_argument("--baseline", required=True, help="Baseline perf-report JSON")
@@ -53,6 +60,7 @@ def main():
   parser.add_argument("--max-cpu-fallback-increase", type=int, default=None, help="Fail if CPU fallback sample count increases by more than this value")
   parser.add_argument("--require-no-missing-benchmarks", action="store_true", help="Fail if candidate report is missing baseline benchmark keys")
   parser.add_argument("--require-no-new-benchmarks", action="store_true", help="Fail if candidate report contains benchmark keys absent in baseline")
+  parser.add_argument("--output-json", default=None, help="Optional machine-readable comparison output path")
   args = parser.parse_args()
 
   baseline_report = load_report(args.baseline)
@@ -64,6 +72,8 @@ def main():
   missing_from_candidate = sorted(set(baseline.keys()) - set(candidate.keys()))
   new_in_candidate = sorted(set(candidate.keys()) - set(baseline.keys()))
   failed = False
+  regressions = []
+  comparison_rows = []
 
   if missing_from_candidate:
     print("Missing benchmarks in candidate:")
@@ -72,6 +82,11 @@ def main():
     if args.require_no_missing_benchmarks:
       print("    REGRESSION: candidate report is missing benchmark keys.")
       failed = True
+      regressions.append({
+        "scope": "benchmark_set",
+        "metric": "missing_benchmarks",
+        "value": len(missing_from_candidate),
+      })
 
   if new_in_candidate:
     print("New benchmarks in candidate:")
@@ -80,6 +95,11 @@ def main():
     if args.require_no_new_benchmarks:
       print("    REGRESSION: candidate report contains unexpected benchmark keys.")
       failed = True
+      regressions.append({
+        "scope": "benchmark_set",
+        "metric": "new_benchmarks",
+        "value": len(new_in_candidate),
+      })
 
   if common_keys:
     print("Comparison:")
@@ -93,6 +113,20 @@ def main():
       enqueued_delta_pct = percent_change(base["thread_enqueued_delta"], cand["thread_enqueued_delta"])
       wait_us_delta_pct = percent_change(base["thread_worker_wait_time_us_delta"], cand["thread_worker_wait_time_us_delta"])
       completed_runs_drop = base["completed_runs"] - cand["completed_runs"]
+      comparison_rows.append({
+        "key": key,
+        "baseline": base,
+        "candidate": cand,
+        "deltas_pct": {
+          "avg_seconds": avg_delta_pct,
+          "p95_seconds": p95_delta_pct,
+          "p99_seconds": p99_delta_pct,
+          "runs_per_second": rps_delta_pct,
+          "thread_enqueued_delta": enqueued_delta_pct,
+          "thread_worker_wait_time_us_delta": wait_us_delta_pct,
+        },
+        "completed_runs_drop": completed_runs_drop,
+      })
       print("  {}: avg_seconds {:+.2f}% ({:.6f} -> {:.6f}), p95_seconds {:+.2f}% ({:.6f} -> {:.6f}), p99_seconds {:+.2f}% ({:.6f} -> {:.6f}), runs_per_second {:+.2f}% ({:.3f} -> {:.3f}), completed_runs {:+d} ({} -> {}), thread_enqueued_delta {:+.2f}% ({:.3f} -> {:.3f}), thread_wait_us_delta {:+.2f}% ({:.3f} -> {:.3f})".format(
         key,
         avg_delta_pct,
@@ -121,24 +155,31 @@ def main():
       if args.max_avg_seconds_regression_pct is not None and avg_delta_pct > args.max_avg_seconds_regression_pct:
         print("    REGRESSION: avg_seconds delta {:+.2f}% exceeds +{:.2f}%".format(avg_delta_pct, args.max_avg_seconds_regression_pct))
         failed = True
+        regressions.append({"key": key, "metric": "avg_seconds_pct", "value": avg_delta_pct, "threshold": args.max_avg_seconds_regression_pct})
       if args.max_p95_seconds_regression_pct is not None and p95_delta_pct > args.max_p95_seconds_regression_pct:
         print("    REGRESSION: p95_seconds delta {:+.2f}% exceeds +{:.2f}%".format(p95_delta_pct, args.max_p95_seconds_regression_pct))
         failed = True
+        regressions.append({"key": key, "metric": "p95_seconds_pct", "value": p95_delta_pct, "threshold": args.max_p95_seconds_regression_pct})
       if args.max_p99_seconds_regression_pct is not None and p99_delta_pct > args.max_p99_seconds_regression_pct:
         print("    REGRESSION: p99_seconds delta {:+.2f}% exceeds +{:.2f}%".format(p99_delta_pct, args.max_p99_seconds_regression_pct))
         failed = True
+        regressions.append({"key": key, "metric": "p99_seconds_pct", "value": p99_delta_pct, "threshold": args.max_p99_seconds_regression_pct})
       if args.max_rps_regression_pct is not None and (-rps_delta_pct) > args.max_rps_regression_pct:
         print("    REGRESSION: runs_per_second delta {:+.2f}% exceeds -{:.2f}%".format(rps_delta_pct, args.max_rps_regression_pct))
         failed = True
+        regressions.append({"key": key, "metric": "runs_per_second_pct", "value": rps_delta_pct, "threshold": -args.max_rps_regression_pct})
       if args.max_completed_runs_drop is not None and completed_runs_drop > args.max_completed_runs_drop:
         print("    REGRESSION: completed_runs drop {} exceeds {}".format(completed_runs_drop, args.max_completed_runs_drop))
         failed = True
+        regressions.append({"key": key, "metric": "completed_runs_drop", "value": completed_runs_drop, "threshold": args.max_completed_runs_drop})
       if args.max_thread_enqueued_regression_pct is not None and enqueued_delta_pct > args.max_thread_enqueued_regression_pct:
         print("    REGRESSION: thread_enqueued_delta {:+.2f}% exceeds +{:.2f}%".format(enqueued_delta_pct, args.max_thread_enqueued_regression_pct))
         failed = True
+        regressions.append({"key": key, "metric": "thread_enqueued_delta_pct", "value": enqueued_delta_pct, "threshold": args.max_thread_enqueued_regression_pct})
       if args.max_thread_wait_us_regression_pct is not None and wait_us_delta_pct > args.max_thread_wait_us_regression_pct:
         print("    REGRESSION: thread_worker_wait_time_us_delta {:+.2f}% exceeds +{:.2f}%".format(wait_us_delta_pct, args.max_thread_wait_us_regression_pct))
         failed = True
+        regressions.append({"key": key, "metric": "thread_worker_wait_time_us_delta_pct", "value": wait_us_delta_pct, "threshold": args.max_thread_wait_us_regression_pct})
 
   baseline_backend_fallbacks = fallback_count(baseline_report, "backend_fallbacks")
   candidate_backend_fallbacks = fallback_count(candidate_report, "backend_fallbacks")
@@ -151,6 +192,7 @@ def main():
   if args.max_backend_fallback_increase is not None and backend_fallback_delta > args.max_backend_fallback_increase:
     print("    REGRESSION: backend fallback delta {:+d} exceeds +{:d}".format(backend_fallback_delta, args.max_backend_fallback_increase))
     failed = True
+    regressions.append({"scope": "fallbacks", "metric": "backend_fallback_delta", "value": backend_fallback_delta, "threshold": args.max_backend_fallback_increase})
 
   baseline_cpu_fallbacks = fallback_count(baseline_report, "cpu_fallbacks")
   candidate_cpu_fallbacks = fallback_count(candidate_report, "cpu_fallbacks")
@@ -163,6 +205,31 @@ def main():
   if args.max_cpu_fallback_increase is not None and cpu_fallback_delta > args.max_cpu_fallback_increase:
     print("    REGRESSION: CPU fallback delta {:+d} exceeds +{:d}".format(cpu_fallback_delta, args.max_cpu_fallback_increase))
     failed = True
+    regressions.append({"scope": "fallbacks", "metric": "cpu_fallback_delta", "value": cpu_fallback_delta, "threshold": args.max_cpu_fallback_increase})
+
+  if args.output_json:
+    output = {
+      "schema": "ppsspp_perf_compare_v1",
+      "baseline_report": args.baseline,
+      "candidate_report": args.candidate,
+      "missing_benchmarks": missing_from_candidate,
+      "new_benchmarks": new_in_candidate,
+      "comparisons": comparison_rows,
+      "fallbacks": {
+        "baseline_backend_fallbacks": baseline_backend_fallbacks,
+        "candidate_backend_fallbacks": candidate_backend_fallbacks,
+        "backend_fallback_delta": backend_fallback_delta,
+        "baseline_cpu_fallbacks": baseline_cpu_fallbacks,
+        "candidate_cpu_fallbacks": candidate_cpu_fallbacks,
+        "cpu_fallback_delta": cpu_fallback_delta,
+      },
+      "regressions": regressions,
+      "failed": failed,
+    }
+    ensure_directory(args.output_json)
+    with open(args.output_json, "w") as f:
+      json.dump(output, f, indent=2, sort_keys=True)
+    print("Wrote comparison JSON to {}".format(args.output_json))
 
   if failed:
     return 2

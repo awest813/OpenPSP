@@ -103,3 +103,9 @@ Percentile frame-time deltas can also be thresholded:
 ```bash
 python3 Tools/perf/compare_reports.py --baseline perf-report-baseline.json --candidate perf-report-candidate.json --max-p95-seconds-regression-pct 5 --max-p99-seconds-regression-pct 5
 ```
+
+To emit a machine-readable comparison artifact:
+
+```bash
+python3 Tools/perf/compare_reports.py --baseline perf-report-baseline.json --candidate perf-report-candidate.json --output-json perf-compare.json
+```
