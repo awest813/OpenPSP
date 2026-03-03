@@ -236,6 +236,12 @@ public:
 		bool upnpUseOriginalPort;
 		int minTimeout;
 	};
+	struct RuntimeVulkanSettings {
+		bool gpuLogProfiler;
+		bool shaderCache;
+		bool useGeometryShader;
+		bool stereoRendering;
+	};
 	struct RuntimeDrawEngineSettings {
 		bool vertexDecoderJit;
 		int cpuCore;
@@ -402,6 +408,14 @@ public:
 			bEnableUPnP,
 			bUPnPUseOriginalPort,
 			iMinTimeout,
+		};
+	}
+	RuntimeVulkanSettings GetRuntimeVulkanSettings() const {
+		return RuntimeVulkanSettings{
+			bGpuLogProfiler,
+			bShaderCache,
+			bUseGeometryShader,
+			bStereoRendering,
 		};
 	}
 	RuntimeDrawEngineSettings GetRuntimeDrawEngineSettings() const {

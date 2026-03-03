@@ -102,7 +102,7 @@ void GPU_Vulkan::FinishInitOnMainThread() {
 
 void GPU_Vulkan::LoadCache(const Path &filename) {
 	_dbg_assert_(draw_);
-	if (!g_Config.bShaderCache) {
+	if (!g_Config.GetRuntimeVulkanSettings().shaderCache) {
 		WARN_LOG(Log::G3D, "Shader cache disabled. Not loading.");
 		return;
 	}
@@ -154,7 +154,7 @@ void GPU_Vulkan::LoadCache(const Path &filename) {
 }
 
 void GPU_Vulkan::SaveCache(const Path &filename) {
-	if (!g_Config.bShaderCache) {
+	if (!g_Config.GetRuntimeVulkanSettings().shaderCache) {
 		INFO_LOG(Log::G3D, "Shader cache disabled. Not saving.");
 		return;
 	}
@@ -257,7 +257,8 @@ u32 GPU_Vulkan::CheckGPUFeatures() const {
 	// Fall back to geometry shader culling if we can't do vertex range culling.
 	// Checking accurate depth here because the old depth path is uncommon and not well tested for this.
 	if (draw_->GetDeviceCaps().geometryShaderSupported && (features & GPU_USE_ACCURATE_DEPTH) != 0) {
-		const bool useGeometry = g_Config.bUseGeometryShader && !draw_->GetBugs().Has(Draw::Bugs::GEOMETRY_SHADERS_SLOW_OR_BROKEN);
+		const auto vulkanSettings = g_Config.GetRuntimeVulkanSettings();
+		const bool useGeometry = vulkanSettings.useGeometryShader && !draw_->GetBugs().Has(Draw::Bugs::GEOMETRY_SHADERS_SLOW_OR_BROKEN);
 		const bool vertexSupported = draw_->GetDeviceCaps().clipDistanceSupported && draw_->GetDeviceCaps().cullDistanceSupported;
 		if (useGeometry && (!vertexSupported || (features & GPU_USE_VS_RANGE_CULLING) == 0)) {
 			// Switch to culling via the geometry shader if not fully supported in vertex.
@@ -280,7 +281,7 @@ u32 GPU_Vulkan::CheckGPUFeatures() const {
 		}
 	}
 
-	if (g_Config.bStereoRendering && draw_->GetDeviceCaps().multiViewSupported) {
+	if (g_Config.GetRuntimeVulkanSettings().stereoRendering && draw_->GetDeviceCaps().multiViewSupported) {
 		features |= GPU_USE_SINGLE_PASS_STEREO;
 		features |= GPU_USE_SIMPLE_STEREO_PERSPECTIVE;
 
