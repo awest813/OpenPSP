@@ -243,6 +243,13 @@ public:
 		bool hardwareTessellation;
 		bool softwareSkinning;
 		int depthRasterMode;
+		bool vendorBugChecksEnabled;
+		bool disableRangeCulling;
+		bool skipBufferEffects;
+		bool uberShaderVertex;
+		bool uberShaderFragment;
+		bool highQualityDepth;
+		int multiSampleLevel;
 	};
 	struct RuntimeGPUExecutionSettings {
 		bool ignoreBadMemAccess;
@@ -405,6 +412,13 @@ public:
 			bHardwareTessellation,
 			bSoftwareSkinning,
 			iDepthRasterMode,
+			bVendorBugChecksEnabled,
+			bDisableRangeCulling,
+			bSkipBufferEffects,
+			bUberShaderVertex,
+			bUberShaderFragment,
+			bHighQualityDepth,
+			iMultiSampleLevel,
 		};
 	}
 	RuntimeGPUExecutionSettings GetRuntimeGPUExecutionSettings() const {

@@ -464,7 +464,8 @@ void GPUCommonHW::DeviceRestore(Draw::DrawContext *draw) {
 }
 
 void GPUCommonHW::UpdateCmdInfo() {
-	if (g_Config.bSoftwareSkinning) {
+	const auto drawSettings = g_Config.GetRuntimeDrawEngineSettings();
+	if (drawSettings.softwareSkinning) {
 		cmdInfo_[GE_CMD_VERTEXTYPE].flags &= ~FLAG_FLUSHBEFOREONCHANGE;
 		cmdInfo_[GE_CMD_VERTEXTYPE].func = &GPUCommonHW::Execute_VertexTypeSkinning;
 	} else {
@@ -576,6 +577,7 @@ void GPUCommonHW::BuildReportingInfo() {
 }
 
 u32 GPUCommonHW::CheckGPUFeatures() const {
+	const auto drawSettings = g_Config.GetRuntimeDrawEngineSettings();
 	u32 features = 0;
 	if (draw_->GetDeviceCaps().logicOpSupported) {
 		features |= GPU_USE_LOGIC_OP;
@@ -587,7 +589,7 @@ u32 GPUCommonHW::CheckGPUFeatures() const {
 		features |= GPU_USE_TEXTURE_NPOT;
 	}
 	if (draw_->GetDeviceCaps().dualSourceBlend) {
-		if (!g_Config.bVendorBugChecksEnabled || !draw_->GetBugs().Has(Draw::Bugs::DUAL_SOURCE_BLENDING_BROKEN)) {
+		if (!drawSettings.vendorBugChecksEnabled || !draw_->GetBugs().Has(Draw::Bugs::DUAL_SOURCE_BLENDING_BROKEN)) {
 			features |= GPU_USE_DUALSOURCE_BLEND;
 		}
 	}
@@ -614,7 +616,7 @@ u32 GPUCommonHW::CheckGPUFeatures() const {
 
 	bool canClipOrCull = draw_->GetDeviceCaps().clipDistanceSupported || draw_->GetDeviceCaps().cullDistanceSupported;
 	bool canDiscardVertex = !draw_->GetBugs().Has(Draw::Bugs::BROKEN_NAN_IN_CONDITIONAL);
-	if ((canClipOrCull || canDiscardVertex) && !g_Config.bDisableRangeCulling) {
+	if ((canClipOrCull || canDiscardVertex) && !drawSettings.disableRangeCulling) {
 		// We'll dynamically use the parts that are supported, to reduce artifacts as much as possible.
 		features |= GPU_USE_VS_RANGE_CULLING;
 	}
@@ -623,12 +625,12 @@ u32 GPUCommonHW::CheckGPUFeatures() const {
 		features |= GPU_USE_FRAMEBUFFER_FETCH;
 		features |= GPU_USE_SHADER_BLENDING;   // doesn't matter if we are buffered or not here.
 	} else {
-		if (!g_Config.bSkipBufferEffects) {
+		if (!drawSettings.skipBufferEffects) {
 			features |= GPU_USE_SHADER_BLENDING;
 		}
 	}
 
-	if (draw_->GetShaderLanguageDesc().bitwiseOps && g_Config.bUberShaderVertex) {
+	if (draw_->GetShaderLanguageDesc().bitwiseOps && drawSettings.uberShaderVertex) {
 		features |= GPU_USE_LIGHT_UBERSHADER;
 	}
 
@@ -642,7 +644,7 @@ u32 GPUCommonHW::CheckGPUFeatures() const {
 	}
 
 	// Some backends will turn this off again in the calling function.
-	if (g_Config.bUberShaderFragment) {
+	if (drawSettings.uberShaderFragment) {
 		features |= GPU_USE_FRAGMENT_UBERSHADER;
 	}
 
@@ -650,6 +652,7 @@ u32 GPUCommonHW::CheckGPUFeatures() const {
 }
 
 u32 GPUCommonHW::CheckGPUFeaturesLate(u32 features) const {
+	const auto drawSettings = g_Config.GetRuntimeDrawEngineSettings();
 	// If we already have a 16-bit depth buffer, we don't need to round.
 	bool prefer24 = draw_->GetDeviceCaps().preferredDepthBufferFormat == Draw::DataFormat::D24_S8;
 	bool prefer16 = draw_->GetDeviceCaps().preferredDepthBufferFormat == Draw::DataFormat::D16;
@@ -661,7 +664,7 @@ u32 GPUCommonHW::CheckGPUFeaturesLate(u32 features) const {
 				features |= GPU_SCALE_DEPTH_FROM_24BIT_TO_16BIT;
 			else
 				features |= GPU_ROUND_FRAGMENT_DEPTH_TO_16BIT;
-		} else if (!g_Config.bHighQualityDepth && (features & GPU_USE_ACCURATE_DEPTH) != 0) {
+		} else if (!drawSettings.highQualityDepth && (features & GPU_USE_ACCURATE_DEPTH) != 0) {
 			features |= GPU_SCALE_DEPTH_FROM_24BIT_TO_16BIT;
 		} else if (PSP_CoreParameter().compat.flags().PixelDepthRounding) {
 			if (prefer24 && (features & GPU_USE_ACCURATE_DEPTH) != 0) {
@@ -681,7 +684,8 @@ u32 GPUCommonHW::CheckGPUFeaturesLate(u32 features) const {
 }
 
 void GPUCommonHW::UpdateMSAALevel(Draw::DrawContext *draw) {
-	int level = g_Config.iMultiSampleLevel;
+	const auto drawSettings = g_Config.GetRuntimeDrawEngineSettings();
+	int level = drawSettings.multiSampleLevel;
 	if (draw && draw->GetDeviceCaps().multiSampleLevelsMask & (1 << level)) {
 		msaaLevel_ = level;
 	} else {
@@ -912,6 +916,7 @@ void GPUCommonHW::Execute_Prim(u32 op, u32 diff) {
 	PROFILE_THIS_SCOPE("execprim");
 
 	FlushImm();
+	const auto drawSettings = g_Config.GetRuntimeDrawEngineSettings();
 
 	// Upper bits are ignored.
 	const GEPrimitiveType prim = static_cast<GEPrimitiveType>((op >> 16) & 7);
@@ -1008,7 +1013,7 @@ void GPUCommonHW::Execute_Prim(u32 op, u32 diff) {
 	// cull mode
 	int cullMode = gstate.getCullMode();
 
-	uint32_t vertTypeID = GetVertTypeID(vertexType, gstate.getUVGenMode(), g_Config.bSoftwareSkinning);
+	uint32_t vertTypeID = GetVertTypeID(vertexType, gstate.getUVGenMode(), drawSettings.softwareSkinning);
 	VertexDecoder *decoder = drawEngineCommon_->GetVertexDecoder(vertTypeID);
 
 	// Through mode early-out for simple float 2D draws, like in Fate Extra CCC (very beneficial there due to avoiding texture loads)
@@ -1082,7 +1087,7 @@ void GPUCommonHW::Execute_Prim(u32 op, u32 diff) {
 	// PRIM commands with other commands. A special case is Earth Defence Force 2 that changes culling mode
 	// between each prim, we just change the triangle winding right here to still be able to join draw calls.
 
-	const uint32_t vtypeCheckMask = g_Config.bSoftwareSkinning ? (~GE_VTYPE_WEIGHTCOUNT_MASK) : 0xFFFFFFFF;
+	const uint32_t vtypeCheckMask = drawSettings.softwareSkinning ? (~GE_VTYPE_WEIGHTCOUNT_MASK) : 0xFFFFFFFF;
 
 	if (!useFastRunLoop_)
 		goto bail;  // we're either recording or stepping.
@@ -1163,7 +1168,7 @@ void GPUCommonHW::Execute_Prim(u32 op, u32 diff) {
 				drawEngineCommon_->FlushSkin();
 				canExtend = false;  // TODO: Might support extending between some vertex types in the future.
 				vertexType = data;
-				vertTypeID = GetVertTypeID(vertexType, gstate.getUVGenMode(), g_Config.bSoftwareSkinning);
+				vertTypeID = GetVertTypeID(vertexType, gstate.getUVGenMode(), drawSettings.softwareSkinning);
 				decoder = drawEngineCommon_->GetVertexDecoder(vertTypeID);
 			}
 			break;
@@ -1716,6 +1721,7 @@ void GPUCommonHW::Execute_TgenMtxData(u32 op, u32 diff) {
 }
 
 void GPUCommonHW::Execute_BoneMtxNum(u32 op, u32 diff) {
+	const auto drawSettings = g_Config.GetRuntimeDrawEngineSettings();
 	if (!currentList) {
 		gstate.boneMatrixNumber = (GE_CMD_BONEMATRIXNUMBER << 24) | (op & 0x7F);
 		return;
@@ -1734,7 +1740,7 @@ void GPUCommonHW::Execute_BoneMtxNum(u32 op, u32 diff) {
 
 	if (fastLoad) {
 		// If we can't use software skinning, we have to flush and dirty.
-		if (!g_Config.bSoftwareSkinning) {
+		if (!drawSettings.softwareSkinning) {
 			while ((src[i] >> 24) == GE_CMD_BONEMATRIXDATA) {
 				const u32 newVal = src[i] << 8;
 				if (dst[i] != newVal) {
@@ -1774,12 +1780,13 @@ void GPUCommonHW::Execute_BoneMtxNum(u32 op, u32 diff) {
 }
 
 void GPUCommonHW::Execute_BoneMtxData(u32 op, u32 diff) {
+	const auto drawSettings = g_Config.GetRuntimeDrawEngineSettings();
 	// Note: it's uncommon to get here now, see above.
 	int num = gstate.boneMatrixNumber & 0x00FFFFFF;
 	u32 newVal = op << 8;
 	if (num < 96 && newVal != ((const u32 *)gstate.boneMatrix)[num]) {
 		// Bone matrices should NOT flush when software skinning is enabled!
-		if (!g_Config.bSoftwareSkinning) {
+		if (!drawSettings.softwareSkinning) {
 			Flush();
 			gstate_c.Dirty(DIRTY_BONEMATRIX0 << (num / 12));
 		} else {
