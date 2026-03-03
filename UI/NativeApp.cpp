@@ -240,10 +240,11 @@ static bool CheckFontIsUsable(const wchar_t *fontFace) {
 
 void PostLoadConfig() {
 	const auto pathSettings = g_Config.GetRuntimePathSettings();
+	const auto nativeAppSettings = g_Config.GetRuntimeNativeAppSettings();
 	if (pathSettings.currentDirectory.empty()) {
 		g_Config.currentDirectory = pathSettings.defaultCurrentDirectory;
 	}
-	g_i18nrepo.LoadIni(g_Config.sLanguageIni);
+	g_i18nrepo.LoadIni(nativeAppSettings.languageIni);
 
 #if !PPSSPP_PLATFORM(WINDOWS) || PPSSPP_PLATFORM(UWP)
 	CreateSysDirectories();
@@ -269,10 +270,11 @@ static void CheckFailedGPUBackends() {
 	// We only want to do this once per process run and backend, to detect process crashes.
 	// If NativeShutdown is called before we finish, we might call this multiple times.
 	static int lastBackend = -1;
-	if (lastBackend == g_Config.iGPUBackend) {
+	const auto initialFailureSettings = g_Config.GetRuntimeGPUBackendFailureSettings();
+	if (lastBackend == initialFailureSettings.gpuBackend) {
 		return;
 	}
-	lastBackend = g_Config.iGPUBackend;
+	lastBackend = initialFailureSettings.gpuBackend;
 
 	const Path failedBackendsDir = GetFailedBackendsDir();
 	const Path failedBackendsFile = failedBackendsDir / "FailedGraphicsBackends.txt";
@@ -283,41 +285,43 @@ static void CheckFailedGPUBackends() {
 	}
 
 	// Use this if you want to debug a graphics crash...
-	if (g_Config.sFailedGPUBackends == "IGNORE")
+	const auto loadedFailureSettings = g_Config.GetRuntimeGPUBackendFailureSettings();
+	if (loadedFailureSettings.failedGPUBackends == "IGNORE")
 		return;
-	else if (!g_Config.sFailedGPUBackends.empty()) {
-		ERROR_LOG(Log::Loader, "Failed graphics backends: %s", g_Config.sFailedGPUBackends.c_str());
+	else if (!loadedFailureSettings.failedGPUBackends.empty()) {
+		ERROR_LOG(Log::Loader, "Failed graphics backends: %s", loadedFailureSettings.failedGPUBackends.c_str());
 	}
 
 	// Okay, let's not try a backend in the failed list.
 	g_Config.iGPUBackend = g_Config.NextValidBackend();
-	if (lastBackend != g_Config.iGPUBackend) {
+	const auto nextFailureSettings = g_Config.GetRuntimeGPUBackendFailureSettings();
+	if (lastBackend != nextFailureSettings.gpuBackend) {
 		// This is the expected path.
-		std::string param = GPUBackendToString((GPUBackend)lastBackend) + " -> " + GPUBackendToString((GPUBackend)g_Config.iGPUBackend);
+		std::string param = GPUBackendToString((GPUBackend)lastBackend) + " -> " + GPUBackendToString((GPUBackend)nextFailureSettings.gpuBackend);
 		System_GraphicsBackendFailedAlert(param);
-		INFO_LOG(Log::Loader, "Failed graphics backend switched from %s (%d to %d)", param.c_str(), lastBackend, g_Config.iGPUBackend);
+		INFO_LOG(Log::Loader, "Failed graphics backend switched from %s (%d to %d)", param.c_str(), lastBackend, nextFailureSettings.gpuBackend);
 	} else {
-		WARN_LOG(Log::Loader, "Did not switch failed backend! %d", g_Config.iGPUBackend);
+		WARN_LOG(Log::Loader, "Did not switch failed backend! %d", nextFailureSettings.gpuBackend);
 	}
 
 	// And then let's - for now - add the current to the failed list, in case it fails - we'll clear it again once it succeeds.
-	const std::string curBackend = GPUBackendToString((GPUBackend)g_Config.iGPUBackend);
-	if (g_Config.sFailedGPUBackends.empty()) {
+	const std::string curBackend = GPUBackendToString((GPUBackend)nextFailureSettings.gpuBackend);
+	if (loadedFailureSettings.failedGPUBackends.empty()) {
 		g_Config.sFailedGPUBackends = curBackend;
-	} else if (g_Config.sFailedGPUBackends.find(curBackend) != std::string::npos) {
+	} else if (loadedFailureSettings.failedGPUBackends.find(curBackend) != std::string::npos) {
 		// Backend already listed!
 		ERROR_LOG(Log::Loader, "Unexpected: Backend already in failed backends. Should not have been attempted");
-	} else if (g_Config.sFailedGPUBackends.find("ALL") == std::string::npos) {
-		g_Config.sFailedGPUBackends += "," + GPUBackendToString((GPUBackend)g_Config.iGPUBackend);
+	} else if (loadedFailureSettings.failedGPUBackends.find("ALL") == std::string::npos) {
+		g_Config.sFailedGPUBackends += "," + GPUBackendToString((GPUBackend)nextFailureSettings.gpuBackend);
 	}
 
 	// Let's try to create, in case it doesn't exist.
 	File::CreateFullPath(failedBackendsDir);
-	File::WriteStringToFile(true, g_Config.sFailedGPUBackends, failedBackendsFile);
+	File::WriteStringToFile(true, g_Config.GetRuntimeGPUBackendFailureSettings().failedGPUBackends, failedBackendsFile);
 }
 
 static void ClearFailedGPUBackends() {
-	if (g_Config.sFailedGPUBackends == "IGNORE")
+	if (g_Config.GetRuntimeGPUBackendFailureSettings().failedGPUBackends == "IGNORE")
 		return;
 
 	const Path failedBackendsDir = GetFailedBackendsDir();
@@ -1198,7 +1202,7 @@ bool HandleGlobalMessage(UIMessage message, const std::string &value) {
 		// NOTE: If graphics backend isn't what's in the config (due to error fallback, or not matching the default
 		// and then getting permission), it will get out of sync. So we save and restore g_Config.iGPUBackend.
 		// Ideally we should simply reinitialize graphics to the mode from the config, but there are potential issues.
-		int gpuBackend = g_Config.iGPUBackend;
+		int gpuBackend = g_Config.GetRuntimeNativeAppSettings().gpuBackend;
 		INFO_LOG(Log::IO, "Reloading config after storage permission grant.");
 		g_Config.Reload();
 		PostLoadConfig();

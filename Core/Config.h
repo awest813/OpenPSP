@@ -203,6 +203,11 @@ public:
 		bool remoteDebuggerOnStartup;
 		int gpuBackend;
 		std::string audioDevice;
+		std::string languageIni;
+	};
+	struct RuntimeGPUBackendFailureSettings {
+		int gpuBackend;
+		std::string failedGPUBackends;
 	};
 	struct RuntimeDrawEngineSettings {
 		bool vertexDecoderJit;
@@ -323,6 +328,13 @@ public:
 			bRemoteDebuggerOnStartup,
 			iGPUBackend,
 			sAudioDevice,
+			sLanguageIni,
+		};
+	}
+	RuntimeGPUBackendFailureSettings GetRuntimeGPUBackendFailureSettings() const {
+		return RuntimeGPUBackendFailureSettings{
+			iGPUBackend,
+			sFailedGPUBackends,
 		};
 	}
 	RuntimeDrawEngineSettings GetRuntimeDrawEngineSettings() const {
