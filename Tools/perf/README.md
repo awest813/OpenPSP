@@ -97,3 +97,9 @@ Thread scheduler pressure can also be guarded:
 ```bash
 python3 Tools/perf/compare_reports.py --baseline perf-report-baseline.json --candidate perf-report-candidate.json --max-thread-enqueued-regression-pct 10 --max-thread-wait-us-regression-pct 10
 ```
+
+Percentile frame-time deltas can also be thresholded:
+
+```bash
+python3 Tools/perf/compare_reports.py --baseline perf-report-baseline.json --candidate perf-report-candidate.json --max-p95-seconds-regression-pct 5 --max-p99-seconds-regression-pct 5
+```

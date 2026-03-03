@@ -16,6 +16,8 @@ def flatten_summary(report):
   for key, values in summary.items():
     flattened[key] = {
       "avg_seconds": float(values.get("avg_seconds", 0.0)),
+      "p95_seconds": float(values.get("p95_seconds", 0.0)),
+      "p99_seconds": float(values.get("p99_seconds", 0.0)),
       "runs_per_second": float(values.get("runs_per_second", 0.0)),
       "completed_runs": int(values.get("completed_runs", 0)),
       "thread_enqueued_delta": float(values.get("thread_enqueued_delta", 0.0)),
@@ -41,6 +43,8 @@ def main():
   parser.add_argument("--baseline", required=True, help="Baseline perf-report JSON")
   parser.add_argument("--candidate", required=True, help="Candidate perf-report JSON")
   parser.add_argument("--max-avg-seconds-regression-pct", type=float, default=None, help="Fail if avg_seconds regression exceeds this percent")
+  parser.add_argument("--max-p95-seconds-regression-pct", type=float, default=None, help="Fail if p95_seconds regression exceeds this percent")
+  parser.add_argument("--max-p99-seconds-regression-pct", type=float, default=None, help="Fail if p99_seconds regression exceeds this percent")
   parser.add_argument("--max-rps-regression-pct", type=float, default=None, help="Fail if runs_per_second regression exceeds this percent")
   parser.add_argument("--max-thread-enqueued-regression-pct", type=float, default=None, help="Fail if thread_enqueued_delta regression exceeds this percent")
   parser.add_argument("--max-thread-wait-us-regression-pct", type=float, default=None, help="Fail if thread_worker_wait_time_us_delta regression exceeds this percent")
@@ -74,14 +78,22 @@ def main():
       base = baseline[key]
       cand = candidate[key]
       avg_delta_pct = percent_change(base["avg_seconds"], cand["avg_seconds"])
+      p95_delta_pct = percent_change(base["p95_seconds"], cand["p95_seconds"])
+      p99_delta_pct = percent_change(base["p99_seconds"], cand["p99_seconds"])
       rps_delta_pct = percent_change(base["runs_per_second"], cand["runs_per_second"])
       enqueued_delta_pct = percent_change(base["thread_enqueued_delta"], cand["thread_enqueued_delta"])
       wait_us_delta_pct = percent_change(base["thread_worker_wait_time_us_delta"], cand["thread_worker_wait_time_us_delta"])
-      print("  {}: avg_seconds {:+.2f}% ({:.6f} -> {:.6f}), runs_per_second {:+.2f}% ({:.3f} -> {:.3f}), thread_enqueued_delta {:+.2f}% ({:.3f} -> {:.3f}), thread_wait_us_delta {:+.2f}% ({:.3f} -> {:.3f})".format(
+      print("  {}: avg_seconds {:+.2f}% ({:.6f} -> {:.6f}), p95_seconds {:+.2f}% ({:.6f} -> {:.6f}), p99_seconds {:+.2f}% ({:.6f} -> {:.6f}), runs_per_second {:+.2f}% ({:.3f} -> {:.3f}), thread_enqueued_delta {:+.2f}% ({:.3f} -> {:.3f}), thread_wait_us_delta {:+.2f}% ({:.3f} -> {:.3f})".format(
         key,
         avg_delta_pct,
         base["avg_seconds"],
         cand["avg_seconds"],
+        p95_delta_pct,
+        base["p95_seconds"],
+        cand["p95_seconds"],
+        p99_delta_pct,
+        base["p99_seconds"],
+        cand["p99_seconds"],
         rps_delta_pct,
         base["runs_per_second"],
         cand["runs_per_second"],
@@ -95,6 +107,12 @@ def main():
 
       if args.max_avg_seconds_regression_pct is not None and avg_delta_pct > args.max_avg_seconds_regression_pct:
         print("    REGRESSION: avg_seconds delta {:+.2f}% exceeds +{:.2f}%".format(avg_delta_pct, args.max_avg_seconds_regression_pct))
+        failed = True
+      if args.max_p95_seconds_regression_pct is not None and p95_delta_pct > args.max_p95_seconds_regression_pct:
+        print("    REGRESSION: p95_seconds delta {:+.2f}% exceeds +{:.2f}%".format(p95_delta_pct, args.max_p95_seconds_regression_pct))
+        failed = True
+      if args.max_p99_seconds_regression_pct is not None and p99_delta_pct > args.max_p99_seconds_regression_pct:
+        print("    REGRESSION: p99_seconds delta {:+.2f}% exceeds +{:.2f}%".format(p99_delta_pct, args.max_p99_seconds_regression_pct))
         failed = True
       if args.max_rps_regression_pct is not None and (-rps_delta_pct) > args.max_rps_regression_pct:
         print("    REGRESSION: runs_per_second delta {:+.2f}% exceeds -{:.2f}%".format(rps_delta_pct, args.max_rps_regression_pct))

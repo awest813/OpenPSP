@@ -70,6 +70,19 @@ def run_profile(config_path, profile, bench_runs, repetitions):
   }
 
 
+def percentile(values, p):
+  if not values:
+    return 0.0
+  sorted_values = sorted(values)
+  if len(sorted_values) == 1:
+    return float(sorted_values[0])
+  rank = (p / 100.0) * (len(sorted_values) - 1)
+  lower = int(rank)
+  upper = min(lower + 1, len(sorted_values) - 1)
+  fraction = rank - lower
+  return (sorted_values[lower] * (1.0 - fraction)) + (sorted_values[upper] * fraction)
+
+
 def summarize(profile_results):
   summary = {}
   for profile_result in profile_results:
@@ -81,9 +94,13 @@ def summarize(profile_results):
 
     for key, samples in grouped.items():
       count = float(len(samples))
+      avg_seconds_samples = [float(sample.get("avg_seconds", 0.0)) for sample in samples]
+      runs_per_second_samples = [float(sample.get("runs_per_second", 0.0)) for sample in samples]
       summary[key] = {
-        "avg_seconds": sum(float(sample.get("avg_seconds", 0.0)) for sample in samples) / count,
-        "runs_per_second": sum(float(sample.get("runs_per_second", 0.0)) for sample in samples) / count,
+        "avg_seconds": sum(avg_seconds_samples) / count,
+        "p95_seconds": percentile(avg_seconds_samples, 95.0),
+        "p99_seconds": percentile(avg_seconds_samples, 99.0),
+        "runs_per_second": sum(runs_per_second_samples) / count,
         "completed_runs": int(sum(int(sample.get("completed_runs", 0)) for sample in samples) / count),
         "thread_enqueued_delta": sum(float(sample.get("thread_enqueued_delta", 0.0)) for sample in samples) / count,
         "thread_dispatched_private_delta": sum(float(sample.get("thread_dispatched_private_delta", 0.0)) for sample in samples) / count,
