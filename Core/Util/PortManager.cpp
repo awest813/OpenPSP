@@ -101,7 +101,8 @@ bool PortManager::Initialize(const unsigned int timeout) {
 	int error = 0;
 	
 	VERBOSE_LOG(Log::sceNet, "PortManager::Initialize(%d)", timeout);
-	if (!g_Config.bEnableUPnP) {
+	const auto networkSettings = g_Config.GetRuntimeNetworkSettings();
+	if (!networkSettings.enableUPnP) {
 		ERROR_LOG(Log::sceNet, "PortManager::Initialize - UPnP is Disabled on Networking Settings");
 		return false;
 	}
@@ -188,7 +189,7 @@ bool PortManager::Initialize(const unsigned int timeout) {
 
 		// Using Game ID & Player Name as default description for mapping
 		std::string gameID = g_paramSFO.GetDiscID();
-		m_defaultDesc = "PPSSPP:" + gameID + ":" + g_Config.sNickName; // Some routers may automatically prefixed it with "UPnP:"
+		m_defaultDesc = "PPSSPP:" + gameID + ":" + networkSettings.nickName; // Some routers may automatically prefixed it with "UPnP:"
 
 		freeUPNPDevlist(devlist);
 
@@ -199,7 +200,7 @@ bool PortManager::Initialize(const unsigned int timeout) {
 	}
 
 	ERROR_LOG(Log::sceNet, "PortManager - upnpDiscover failed (error: %i) or No UPnP device detected", error);
-	if (g_Config.bEnableUPnP) {
+	if (networkSettings.enableUPnP) {
 		auto n = GetI18NCategory(I18NCat::NETWORKING);
 		g_OSD.Show(OSDType::MESSAGE_ERROR, StringFromFormat("%s (%d)", n->T_cstr("Unable to find UPnP device"), error), 0.0f, "upnp_warning");
 	}
@@ -224,7 +225,7 @@ bool PortManager::Add(const char* protocol, unsigned short port, unsigned short 
 	INFO_LOG(Log::sceNet, "PortManager::Add(%s, %d, %d)", protocol, port, intport);
 	if (urls == NULL || urls->controlURL == NULL || urls->controlURL[0] == '\0')
 	{
-		if (g_Config.bEnableUPnP) {
+		if (g_Config.GetRuntimeNetworkSettings().enableUPnP) {
 			WARN_LOG(Log::sceNet, "PortManager::Add - the init was not done !");
 			g_OSD.Show(OSDType::MESSAGE_INFO, n->T("UPnP need to be reinitialized"));
 		}
@@ -255,7 +256,7 @@ bool PortManager::Add(const char* protocol, unsigned short port, unsigned short 
 		{
 			ERROR_LOG(Log::sceNet, "PortManager - AddPortMapping failed (error: %i)", r);
 			if (r == UPNPCOMMAND_HTTP_ERROR) {
-				if (g_Config.bEnableUPnP) {
+				if (g_Config.GetRuntimeNetworkSettings().enableUPnP) {
 					g_OSD.Show(OSDType::MESSAGE_INFO, n->T("UPnP need to be reinitialized"));
 				}
 				Terminate(); // Most of the time errors occurred because the router is no longer reachable (ie. changed networks) so we should invalidate the state to prevent further lags due to timeouts
@@ -280,7 +281,7 @@ bool PortManager::Remove(const char* protocol, unsigned short port) {
 	INFO_LOG(Log::sceNet, "PortManager::Remove(%s, %d)", protocol, port);
 	if (urls == NULL || urls->controlURL == NULL || urls->controlURL[0] == '\0')
 	{
-		if (g_Config.bEnableUPnP) {
+		if (g_Config.GetRuntimeNetworkSettings().enableUPnP) {
 			WARN_LOG(Log::sceNet, "PortManager::Remove - the init was not done !");
 			g_OSD.Show(OSDType::MESSAGE_INFO, n->T("UPnP need to be reinitialized"));
 		}
@@ -293,7 +294,7 @@ bool PortManager::Remove(const char* protocol, unsigned short port) {
 	{
 		ERROR_LOG(Log::sceNet, "PortManager - DeletePortMapping failed (error: %i)", r);
 		if (r == UPNPCOMMAND_HTTP_ERROR) {
-			if (g_Config.bEnableUPnP) {
+			if (g_Config.GetRuntimeNetworkSettings().enableUPnP) {
 				g_OSD.Show(OSDType::MESSAGE_INFO, n->T("UPnP need to be reinitialized"));
 			}
 			Terminate(); // Most of the time errors occurred because the router is no longer reachable (ie. changed networks) so we should invalidate the state to prevent further lags due to timeouts
@@ -315,7 +316,7 @@ bool PortManager::Restore() {
 	VERBOSE_LOG(Log::sceNet, "PortManager::Restore()");
 	if (urls == NULL || urls->controlURL == NULL || urls->controlURL[0] == '\0')
 	{
-		if (g_Config.bEnableUPnP) WARN_LOG(Log::sceNet, "PortManager::Remove - the init was not done !");
+		if (g_Config.GetRuntimeNetworkSettings().enableUPnP) WARN_LOG(Log::sceNet, "PortManager::Remove - the init was not done !");
 		return false;
 	}
 	for (auto it = m_otherPortList.begin(); it != m_otherPortList.end(); ++it) {
@@ -372,7 +373,7 @@ bool PortManager::Clear() {
 	VERBOSE_LOG(Log::sceNet, "PortManager::Clear()");
 	if (urls == NULL || urls->controlURL == NULL || urls->controlURL[0] == '\0')
 	{
-		if (g_Config.bEnableUPnP) WARN_LOG(Log::sceNet, "PortManager::Clear - the init was not done !");
+		if (g_Config.GetRuntimeNetworkSettings().enableUPnP) WARN_LOG(Log::sceNet, "PortManager::Clear - the init was not done !");
 		return false;
 	}
 	//unsigned int num = 0;
@@ -430,7 +431,7 @@ bool PortManager::RefreshPortList() {
 	INFO_LOG(Log::sceNet, "PortManager::RefreshPortList()");
 	if (urls == NULL || urls->controlURL == NULL || urls->controlURL[0] == '\0')
 	{
-		if (g_Config.bEnableUPnP) WARN_LOG(Log::sceNet, "PortManager::RefreshPortList - the init was not done !");
+		if (g_Config.GetRuntimeNetworkSettings().enableUPnP) WARN_LOG(Log::sceNet, "PortManager::RefreshPortList - the init was not done !");
 		return false;
 	}
 	m_portList.clear();
@@ -476,15 +477,16 @@ int upnpService(const unsigned int timeout) {
 
 	// Service Loop
 	while (upnpServiceRunning) {
+		const auto networkSettings = g_Config.GetRuntimeNetworkSettings();
 		// Sleep for 1ms for faster response if active, otherwise sleep longer (TODO: Improve on this).
-		sleep_ms(g_Config.bEnableUPnP ? 1 : 500, "upnp-poll");
+		sleep_ms(networkSettings.enableUPnP ? 1 : 500, "upnp-poll");
 
 		// Attempts to reconnect if not connected yet or got disconnected
-		if (g_Config.bEnableUPnP && g_PortManager.GetInitState() == UPNP_INITSTATE_NONE) {
+		if (networkSettings.enableUPnP && g_PortManager.GetInitState() == UPNP_INITSTATE_NONE) {
 			g_PortManager.Initialize(timeout);
 		}
 
-		if (g_Config.bEnableUPnP && g_PortManager.GetInitState() == UPNP_INITSTATE_DONE && !upnpReqs.empty()) {
+		if (networkSettings.enableUPnP && g_PortManager.GetInitState() == UPNP_INITSTATE_DONE && !upnpReqs.empty()) {
 			upnpLock.lock();
 			UPnPArgs arg = upnpReqs.front();
 			upnpLock.unlock();

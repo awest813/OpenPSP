@@ -213,6 +213,8 @@ public:
 		int remoteISOShareType;
 		std::string remoteISOSharedDir;
 		int remoteISOPort;
+		bool enableUPnP;
+		std::string nickName;
 	};
 	struct RuntimeDrawEngineSettings {
 		bool vertexDecoderJit;
@@ -347,6 +349,8 @@ public:
 			iRemoteISOShareType,
 			sRemoteISOSharedDir,
 			iRemoteISOPort,
+			bEnableUPnP,
+			sNickName,
 		};
 	}
 	RuntimeDrawEngineSettings GetRuntimeDrawEngineSettings() const {
