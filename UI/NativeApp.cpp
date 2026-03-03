@@ -1253,16 +1253,18 @@ static void ProcessWheelRelease(InputKeyCode keyCode, double now, bool keyPress)
 	}
 
 	if (keyPress) {
-		float releaseTime = (float)g_Config.iMouseWheelUpDelayMs * (1.0f / 1000.0f);
+		const auto inputSettings = g_Config.GetRuntimeInputSettings();
+		float releaseTime = (float)inputSettings.mouseWheelUpDelayMs * (1.0f / 1000.0f);
 		g_wheelReleaseTime[dir] = now + releaseTime;
 	}
 }
 
 bool NativeKey(const KeyInput &key) {
 	double now = time_now_d();
+	const auto inputSettings = g_Config.GetRuntimeInputSettings();
 
 	// VR actions
-	if ((IsVREnabled() || g_Config.bForceVR) && !UpdateVRKeys(key)) {
+	if ((IsVREnabled() || inputSettings.forceVR) && !UpdateVRKeys(key)) {
 		return false;
 	}
 
@@ -1276,7 +1278,7 @@ bool NativeKey(const KeyInput &key) {
 
 	// INFO_LOG(Log::System, "Key code: %i flags: %i", key.keyCode, key.flags);
 #if !defined(MOBILE_DEVICE)
-	if (g_Config.bPauseExitsEmulator) {
+	if (inputSettings.pauseExitsEmulator) {
 		std::vector<int> pspKeys;
 		pspKeys.clear();
 		if (KeyMap::InputMappingToPspButton(InputMapping(key.deviceId, key.keyCode), &pspKeys)) {
@@ -1331,8 +1333,9 @@ bool NativeKey(const KeyInput &key) {
 }
 
 void NativeAxis(const AxisInput *axes, size_t count) {
+	const auto inputSettings = g_Config.GetRuntimeInputSettings();
 	// VR actions
-	if ((IsVREnabled() || g_Config.bForceVR) && !UpdateVRAxis(axes, count)) {
+	if ((IsVREnabled() || inputSettings.forceVR) && !UpdateVRAxis(axes, count)) {
 		return;
 	}
 
@@ -1374,7 +1377,8 @@ static void SendMouseDeltaAxis() {
 }
 
 void NativeMouseDelta(float dx, float dy) {
-	if (!g_Config.bMouseControl)
+	const auto inputSettings = g_Config.GetRuntimeInputSettings();
+	if (!inputSettings.mouseControl)
 		return;
 
 	// Remap, shared code. Then send it as a regular axis event.
@@ -1385,21 +1389,22 @@ void NativeMouseDelta(float dx, float dy) {
 
 // TODO: Should include a device ID here, since accelerometers can be on pads for example (DualSense).
 void NativeAccelerometer(float tiltX, float tiltY, float tiltZ) {
-	if (g_Config.iTiltInputType == TILT_NULL) {
+	const auto inputSettings = g_Config.GetRuntimeInputSettings();
+	if (inputSettings.tiltInputType == TILT_NULL) {
 		// if tilt events are disabled, don't do anything special.
 		return;
 	}
 
 	// create the base coordinate tilt system from the calibration data.
-	float tiltBaseAngleY = g_Config.fTiltBaseAngleY;
+	float tiltBaseAngleY = inputSettings.tiltBaseAngleY;
 
 	// Figure out the sensitivity of the tilt. (sensitivity is originally 0 - 100)
 	// We divide by 50, so that the rest of the 50 units can be used to overshoot the
 	// target. If you want precise control, you'd keep the sensitivity ~50.
 	// For games that don't need much control but need fast reactions,
 	// then a value of 70-80 is the way to go.
-	float xSensitivity = g_Config.iTiltSensitivityX / 50.0;
-	float ySensitivity = g_Config.iTiltSensitivityY / 50.0;
+	float xSensitivity = inputSettings.tiltSensitivityX / 50.0;
+	float ySensitivity = inputSettings.tiltSensitivityY / 50.0;
 
 	// x and y are flipped if we are in landscape orientation. The events are
 	// sent with respect to the portrait coordinate system, while we
@@ -1408,7 +1413,7 @@ void NativeAccelerometer(float tiltX, float tiltY, float tiltZ) {
 	bool landscape = g_display.dp_yres < g_display.dp_xres;
 	// now transform out current tilt to the calibrated coordinate system
 	TiltEventProcessor::ProcessTilt(landscape, tiltBaseAngleY, tiltX, tiltY, tiltZ,
-		g_Config.bInvertTiltX, g_Config.bInvertTiltY,
+		inputSettings.invertTiltX, inputSettings.invertTiltY,
 		xSensitivity, ySensitivity);
 
 	HLEPlugins::PluginDataAxis[JOYSTICK_AXIS_ACCELEROMETER_X] = tiltX;

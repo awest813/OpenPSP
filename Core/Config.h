@@ -242,6 +242,18 @@ public:
 		bool enableFileLogging;
 		int dumpFileTypes;
 	};
+	struct RuntimeInputSettings {
+		int mouseWheelUpDelayMs;
+		bool forceVR;
+		bool pauseExitsEmulator;
+		bool mouseControl;
+		int tiltInputType;
+		float tiltBaseAngleY;
+		int tiltSensitivityX;
+		int tiltSensitivityY;
+		bool invertTiltX;
+		bool invertTiltY;
+	};
 
 	~Config();
 
@@ -340,6 +352,20 @@ public:
 		return RuntimeDebugOutputSettings{
 			bEnableFileLogging,
 			iDumpFileTypes,
+		};
+	}
+	RuntimeInputSettings GetRuntimeInputSettings() const {
+		return RuntimeInputSettings{
+			iMouseWheelUpDelayMs,
+			bForceVR,
+			bPauseExitsEmulator,
+			bMouseControl,
+			iTiltInputType,
+			fTiltBaseAngleY,
+			iTiltSensitivityX,
+			iTiltSensitivityY,
+			bInvertTiltX,
+			bInvertTiltY,
 		};
 	}
 
