@@ -115,3 +115,13 @@ To emit a machine-readable comparison artifact:
 ```bash
 python3 Tools/perf/compare_reports.py --baseline perf-report-baseline.json --candidate perf-report-candidate.json --output-json perf-compare.json
 ```
+
+## Regression triage workflow
+
+When a perf compare run fails thresholds:
+
+1. Check `missing_benchmarks` / `new_benchmarks` first (often config/profile drift).
+2. Check fallback deltas (`backend_fallbacks`, `cpu_fallbacks`) to rule out backend/core fallback effects.
+3. Sort by largest `avg_seconds` / `p95_seconds` / `p99_seconds` regression.
+4. Cross-check thread pressure deltas (`thread_enqueued_delta`, `thread_worker_wait_time_us_delta`) for scheduler contention clues.
+5. Re-run the affected profile with higher repetitions to confirm signal before raising or tuning thresholds.
