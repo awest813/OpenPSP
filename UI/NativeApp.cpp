@@ -1538,7 +1538,8 @@ bool Native_IsWindowHidden() {
 }
 
 static bool IsWindowSmall(int pixelWidth, int pixelHeight) {
-	if (!g_Config.bShrinkIfWindowSmall) {
+	const auto layoutSettings = g_Config.GetRuntimeWindowLayoutSettings();
+	if (!layoutSettings.shrinkIfWindowSmall) {
 		return false;
 	}
 
@@ -1565,7 +1566,8 @@ bool Native_UpdateScreenScale(int pixel_width, int pixel_height, float customSca
 	if (smallWindow) {
 		customScale *= 0.5f;
 	} else {
-		customScale = UIScaleFactorToMultiplier(g_Config.iUIScaleFactor);
+		const auto layoutSettings = g_Config.GetRuntimeWindowLayoutSettings();
+		customScale = UIScaleFactorToMultiplier(layoutSettings.uiScaleFactor);
 	}
 
 	if (g_display.Recalculate(pixel_width, pixel_height, g_logical_dpi / dpi, g_logical_dpi / dpi, customScale)) {

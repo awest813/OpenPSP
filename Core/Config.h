@@ -254,6 +254,10 @@ public:
 		bool invertTiltX;
 		bool invertTiltY;
 	};
+	struct RuntimeWindowLayoutSettings {
+		bool shrinkIfWindowSmall;
+		int uiScaleFactor;
+	};
 
 	~Config();
 
@@ -366,6 +370,12 @@ public:
 			iTiltSensitivityY,
 			bInvertTiltX,
 			bInvertTiltY,
+		};
+	}
+	RuntimeWindowLayoutSettings GetRuntimeWindowLayoutSettings() const {
+		return RuntimeWindowLayoutSettings{
+			bShrinkIfWindowSmall,
+			iUIScaleFactor,
 		};
 	}
 
