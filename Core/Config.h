@@ -216,6 +216,14 @@ public:
 		bool enableUPnP;
 		std::string nickName;
 	};
+	struct RuntimeAdhocSettings {
+		bool enableWlan;
+		std::string proAdhocServer;
+		std::string nickName;
+		std::string macAddress;
+		int wlanAdhocChannel;
+		bool enableAdhocServer;
+	};
 	struct RuntimeDrawEngineSettings {
 		bool vertexDecoderJit;
 		int cpuCore;
@@ -351,6 +359,16 @@ public:
 			iRemoteISOPort,
 			bEnableUPnP,
 			sNickName,
+		};
+	}
+	RuntimeAdhocSettings GetRuntimeAdhocSettings() const {
+		return RuntimeAdhocSettings{
+			bEnableWlan,
+			sProAdhocServer,
+			sNickName,
+			sMACAddress,
+			iWlanAdhocChannel,
+			bEnableAdhocServer,
 		};
 	}
 	RuntimeDrawEngineSettings GetRuntimeDrawEngineSettings() const {

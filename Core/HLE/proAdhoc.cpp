@@ -1319,7 +1319,8 @@ void sendChat(const std::string &chatString) {
 			if (IsSocketReady((int)metasocket, false, true) > 0) {
 				int chatResult = (int)send((int)metasocket, (const char*)&chat, sizeof(chat), MSG_NOSIGNAL);
 				NOTICE_LOG(Log::sceNet, "Send Chat %s to Adhoc Server", chat.message);
-				std::string name = g_Config.sNickName;
+				const auto adhocSettings = g_Config.GetRuntimeAdhocSettings();
+				std::string name = adhocSettings.nickName;
 
 				std::lock_guard<std::mutex> guard(chatLogLock);
 				chatLog.emplace_back(name.substr(0, 8) + ": " + chat.message);
@@ -1379,9 +1380,10 @@ int friendFinder() {
 	addrinfo* resolved = nullptr;
 	std::string err;
 	g_adhocServerIP.in.sin_addr.s_addr = INADDR_NONE;
-	if (g_Config.bEnableWlan && !net::DNSResolve(g_Config.sProAdhocServer, "", &resolved, err)) {
-		ERROR_LOG(Log::sceNet, "DNS Error Resolving %s\n", g_Config.sProAdhocServer.c_str());
-		g_OSD.Show(OSDType::MESSAGE_ERROR, std::string(n->T("DNS Error Resolving")) + g_Config.sProAdhocServer);
+	const auto initialAdhocSettings = g_Config.GetRuntimeAdhocSettings();
+	if (initialAdhocSettings.enableWlan && !net::DNSResolve(initialAdhocSettings.proAdhocServer, "", &resolved, err)) {
+		ERROR_LOG(Log::sceNet, "DNS Error Resolving %s\n", initialAdhocSettings.proAdhocServer.c_str());
+		g_OSD.Show(OSDType::MESSAGE_ERROR, std::string(n->T("DNS Error Resolving")) + initialAdhocSettings.proAdhocServer);
 	}
 	if (resolved) {
 		for (auto ptr = resolved; ptr != NULL; ptr = ptr->ai_next) {
@@ -1403,7 +1405,8 @@ int friendFinder() {
 
 		// Reconnect when disconnected while Adhocctl is still inited
 		if (metasocket == (int)INVALID_SOCKET && netAdhocctlInited && isAdhocctlNeedLogin) {
-			if (g_Config.bEnableWlan) {
+			const auto adhocSettings = g_Config.GetRuntimeAdhocSettings();
+			if (adhocSettings.enableWlan) {
 				// Not really initNetwork.
 				if (initNetwork(&product_code) == 0) {
 					g_adhocServerConnected = true;
@@ -1942,11 +1945,12 @@ void getLocalMac(SceNetEtherAddr * addr){
 		memset(&mac, PPSSPP_ID, sizeof(mac));
 		// Making sure the 1st 2-bits on the 1st byte of OUI are zero to prevent issue with some games (ie. Gran Turismo)
 		mac[0] &= 0xfc;
-	}
-	else
-	if (!ParseMacAddress(g_Config.sMACAddress, mac)) {
-		ERROR_LOG(Log::sceNet, "Error parsing mac address %s", g_Config.sMACAddress.c_str());
-		memset(&mac, 0, sizeof(mac));
+	} else {
+		const auto adhocSettings = g_Config.GetRuntimeAdhocSettings();
+		if (!ParseMacAddress(adhocSettings.macAddress, mac)) {
+			ERROR_LOG(Log::sceNet, "Error parsing mac address %s", adhocSettings.macAddress.c_str());
+			memset(&mac, 0, sizeof(mac));
+		}
 	}
 	memcpy(addr, mac, ETHER_ADDR_LEN);
 }
@@ -2215,10 +2219,11 @@ int initNetwork(SceNetAdhocctlAdhocId *adhoc_id){
 	}
 	
 	// Default/Initial Network Parameters
+	const auto adhocSettings = g_Config.GetRuntimeAdhocSettings();
 	memset(&parameter, 0, sizeof(parameter));
-	strncpy((char *)&parameter.nickname.data, g_Config.sNickName.c_str(), ADHOCCTL_NICKNAME_LEN);
+	strncpy((char *)&parameter.nickname.data, adhocSettings.nickName.c_str(), ADHOCCTL_NICKNAME_LEN);
 	parameter.nickname.data[ADHOCCTL_NICKNAME_LEN - 1] = 0;
-	parameter.channel = g_Config.iWlanAdhocChannel;
+	parameter.channel = adhocSettings.wlanAdhocChannel;
 	// Assign a Valid Channel when connected to AP/Adhoc if it's Auto. JPCSP use 11 as default for Auto (Commonly for Auto: 1, 6, 11)
 	if (parameter.channel == PSP_SYSTEMPARAM_ADHOC_CHANNEL_AUTOMATIC) parameter.channel = defaultWlanChannel; // Faked Active channel to default channel
 	//getLocalMac(&parameter.bssid.mac_addr);
@@ -2232,7 +2237,7 @@ int initNetwork(SceNetAdhocctlAdhocId *adhoc_id){
 		return SOCKET_ERROR;
 
 	// Don't need to connect if AdhocServer IP is the same with this instance localhost IP and having AdhocServer disabled
-	if (g_adhocServerIP.in.sin_addr.s_addr == g_localhostIP.in.sin_addr.s_addr && !g_Config.bEnableAdhocServer)
+	if (g_adhocServerIP.in.sin_addr.s_addr == g_localhostIP.in.sin_addr.s_addr && !adhocSettings.enableAdhocServer)
 		return SOCKET_ERROR;
 
 	// Connect to Adhoc Server
@@ -2264,7 +2269,7 @@ int initNetwork(SceNetAdhocctlAdhocId *adhoc_id){
 			sleep_ms(10, "pro-adhoc-socket-poll");
 		}
 		if (!done) {
-			ERROR_LOG(Log::sceNet, "Socket error (%i) when connecting to AdhocServer [%s/%s:%u]", errorcode, g_Config.sProAdhocServer.c_str(), ip2str(g_adhocServerIP.in.sin_addr).c_str(), ntohs(g_adhocServerIP.in.sin_port));
+			ERROR_LOG(Log::sceNet, "Socket error (%i) when connecting to AdhocServer [%s/%s:%u]", errorcode, adhocSettings.proAdhocServer.c_str(), ip2str(g_adhocServerIP.in.sin_addr).c_str(), ntohs(g_adhocServerIP.in.sin_port));
 			g_OSD.Show(OSDType::MESSAGE_ERROR, std::string(n->T("Failed to connect to Adhoc Server")) + " (" + std::string(n->T("Error")) + ": " + std::to_string(errorcode) + ")");
 			return iResult;
 		}
@@ -2276,7 +2281,7 @@ int initNetwork(SceNetAdhocctlAdhocId *adhoc_id){
 	SceNetEtherAddr addres;
 	getLocalMac(&addres);
 	packet.mac = addres;
-	strncpy((char *)&packet.name.data, g_Config.sNickName.c_str(), ADHOCCTL_NICKNAME_LEN);
+	strncpy((char *)&packet.name.data, adhocSettings.nickName.c_str(), ADHOCCTL_NICKNAME_LEN);
 	packet.name.data[ADHOCCTL_NICKNAME_LEN - 1] = 0;
 	memcpy(packet.game.data, adhoc_id->data, ADHOCCTL_ADHOCID_LEN);
 

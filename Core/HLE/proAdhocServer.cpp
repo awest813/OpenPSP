@@ -1664,8 +1664,9 @@ int proAdhocServerThread(int port) // (int argc, char * argv[])
 	SetCurrentThreadName("AdhocServer");
 	// Result
 	int result = 0;
+	const auto adhocSettings = g_Config.GetRuntimeAdhocSettings();
 
-	if (net::HostPortExists(g_Config.sProAdhocServer, SERVER_PORT, 200)) {
+	if (net::HostPortExists(adhocSettings.proAdhocServer, SERVER_PORT, 200)) {
 		INFO_LOG(Log::sceNet, "AdhocServer: Skipped starting because the server is already available");
 		return 0;
 	}
