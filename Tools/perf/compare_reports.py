@@ -48,8 +48,11 @@ def main():
   parser.add_argument("--max-rps-regression-pct", type=float, default=None, help="Fail if runs_per_second regression exceeds this percent")
   parser.add_argument("--max-thread-enqueued-regression-pct", type=float, default=None, help="Fail if thread_enqueued_delta regression exceeds this percent")
   parser.add_argument("--max-thread-wait-us-regression-pct", type=float, default=None, help="Fail if thread_worker_wait_time_us_delta regression exceeds this percent")
+  parser.add_argument("--max-completed-runs-drop", type=int, default=None, help="Fail if completed_runs drops by more than this count")
   parser.add_argument("--max-backend-fallback-increase", type=int, default=None, help="Fail if backend fallback sample count increases by more than this value")
   parser.add_argument("--max-cpu-fallback-increase", type=int, default=None, help="Fail if CPU fallback sample count increases by more than this value")
+  parser.add_argument("--require-no-missing-benchmarks", action="store_true", help="Fail if candidate report is missing baseline benchmark keys")
+  parser.add_argument("--require-no-new-benchmarks", action="store_true", help="Fail if candidate report contains benchmark keys absent in baseline")
   args = parser.parse_args()
 
   baseline_report = load_report(args.baseline)
@@ -60,18 +63,24 @@ def main():
   common_keys = sorted(set(baseline.keys()) & set(candidate.keys()))
   missing_from_candidate = sorted(set(baseline.keys()) - set(candidate.keys()))
   new_in_candidate = sorted(set(candidate.keys()) - set(baseline.keys()))
+  failed = False
 
   if missing_from_candidate:
     print("Missing benchmarks in candidate:")
     for key in missing_from_candidate:
       print("  - {}".format(key))
+    if args.require_no_missing_benchmarks:
+      print("    REGRESSION: candidate report is missing benchmark keys.")
+      failed = True
 
   if new_in_candidate:
     print("New benchmarks in candidate:")
     for key in new_in_candidate:
       print("  + {}".format(key))
+    if args.require_no_new_benchmarks:
+      print("    REGRESSION: candidate report contains unexpected benchmark keys.")
+      failed = True
 
-  failed = False
   if common_keys:
     print("Comparison:")
     for key in common_keys:
@@ -83,7 +92,8 @@ def main():
       rps_delta_pct = percent_change(base["runs_per_second"], cand["runs_per_second"])
       enqueued_delta_pct = percent_change(base["thread_enqueued_delta"], cand["thread_enqueued_delta"])
       wait_us_delta_pct = percent_change(base["thread_worker_wait_time_us_delta"], cand["thread_worker_wait_time_us_delta"])
-      print("  {}: avg_seconds {:+.2f}% ({:.6f} -> {:.6f}), p95_seconds {:+.2f}% ({:.6f} -> {:.6f}), p99_seconds {:+.2f}% ({:.6f} -> {:.6f}), runs_per_second {:+.2f}% ({:.3f} -> {:.3f}), thread_enqueued_delta {:+.2f}% ({:.3f} -> {:.3f}), thread_wait_us_delta {:+.2f}% ({:.3f} -> {:.3f})".format(
+      completed_runs_drop = base["completed_runs"] - cand["completed_runs"]
+      print("  {}: avg_seconds {:+.2f}% ({:.6f} -> {:.6f}), p95_seconds {:+.2f}% ({:.6f} -> {:.6f}), p99_seconds {:+.2f}% ({:.6f} -> {:.6f}), runs_per_second {:+.2f}% ({:.3f} -> {:.3f}), completed_runs {:+d} ({} -> {}), thread_enqueued_delta {:+.2f}% ({:.3f} -> {:.3f}), thread_wait_us_delta {:+.2f}% ({:.3f} -> {:.3f})".format(
         key,
         avg_delta_pct,
         base["avg_seconds"],
@@ -97,6 +107,9 @@ def main():
         rps_delta_pct,
         base["runs_per_second"],
         cand["runs_per_second"],
+        -completed_runs_drop,
+        base["completed_runs"],
+        cand["completed_runs"],
         enqueued_delta_pct,
         base["thread_enqueued_delta"],
         cand["thread_enqueued_delta"],
@@ -116,6 +129,9 @@ def main():
         failed = True
       if args.max_rps_regression_pct is not None and (-rps_delta_pct) > args.max_rps_regression_pct:
         print("    REGRESSION: runs_per_second delta {:+.2f}% exceeds -{:.2f}%".format(rps_delta_pct, args.max_rps_regression_pct))
+        failed = True
+      if args.max_completed_runs_drop is not None and completed_runs_drop > args.max_completed_runs_drop:
+        print("    REGRESSION: completed_runs drop {} exceeds {}".format(completed_runs_drop, args.max_completed_runs_drop))
         failed = True
       if args.max_thread_enqueued_regression_pct is not None and enqueued_delta_pct > args.max_thread_enqueued_regression_pct:
         print("    REGRESSION: thread_enqueued_delta {:+.2f}% exceeds +{:.2f}%".format(enqueued_delta_pct, args.max_thread_enqueued_regression_pct))
