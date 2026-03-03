@@ -690,14 +690,16 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 
 	if (!boot_filename.empty() && stateToLoad.Valid()) {
 		SaveState::Load(stateToLoad, -1, [](SaveState::Status status, std::string_view message) {
-			if (!message.empty() && (!g_Config.bDumpFrames || !g_Config.bDumpVideoOutput)) {
+			const auto nativeAppSettings = g_Config.GetRuntimeNativeAppSettings();
+			if (!message.empty() && (!nativeAppSettings.dumpFrames || !nativeAppSettings.dumpVideoOutput)) {
 				g_OSD.Show(status == SaveState::Status::SUCCESS ? OSDType::MESSAGE_SUCCESS : OSDType::MESSAGE_ERROR,
 					message, status == SaveState::Status::SUCCESS ? 2.0 : 5.0);
 			}
 		});
 	}
 
-	if (g_Config.bAchievementsEnable) {
+	const auto nativeAppSettings = g_Config.GetRuntimeNativeAppSettings();
+	if (nativeAppSettings.achievementsEnable) {
 		FILE *iconCacheFile = File::OpenCFile(GetSysDirectory(DIRECTORY_CACHE) / "icon.cache", "rb");
 		if (iconCacheFile) {
 			g_iconCache.LoadFromFile(iconCacheFile);
@@ -733,10 +735,10 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 	// screenManager->push(new GPUDriverTestScreen());
 
 	WebServerFlags flags = (WebServerFlags)0;
-	if (g_Config.bRemoteShareOnStartup) {
+	if (nativeAppSettings.remoteShareOnStartup) {
 		flags |= WebServerFlags::DISCS;
 	}
-	if (g_Config.bRemoteDebuggerOnStartup) {
+	if (nativeAppSettings.remoteDebuggerOnStartup) {
 		flags |= WebServerFlags::DEBUGGER;
 	}
 	if (flags != WebServerFlags::NONE) {
@@ -748,7 +750,7 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 	// We do this here, instead of in NativeInitGraphics, because the display may be reset.
 	// When it's reset we don't want to forget all our managed things.
 	CheckFailedGPUBackends();
-	SetGPUBackend((GPUBackend)g_Config.iGPUBackend);
+	SetGPUBackend((GPUBackend)g_Config.GetRuntimeNativeAppSettings().gpuBackend);
 	renderCounter = 0;
 
 	// Initialize retro achievements runtime.
@@ -780,7 +782,8 @@ static void NativeMixWrapper(float *dest, int framesToWrite, int sampleRateHz, v
 bool NativeInitGraphics(GraphicsContext *graphicsContext) {
 	INFO_LOG(Log::System, "NativeInitGraphics");
 
-	_assert_msg_(g_screenManager, "No screenmanager, bad init order. Backend = %d", g_Config.iGPUBackend);
+	const auto nativeAppSettings = g_Config.GetRuntimeNativeAppSettings();
+	_assert_msg_(g_screenManager, "No screenmanager, bad init order. Backend = %d", nativeAppSettings.gpuBackend);
 
 	// We set this now so any resize during init is processed later.
 	resized = false;
@@ -819,7 +822,7 @@ bool NativeInitGraphics(GraphicsContext *graphicsContext) {
 	if (g_audioBackend) {
 		g_audioBackend->SetRenderCallback(&NativeMixWrapper, nullptr);
 		bool reverted = false;
-		g_audioBackend->InitOutputDevice(g_Config.sAudioDevice, LatencyMode::Aggressive, &reverted);
+		g_audioBackend->InitOutputDevice(nativeAppSettings.audioDevice, LatencyMode::Aggressive, &reverted);
 		if (reverted) {
 			g_Config.sAudioDevice.clear();
 		}
@@ -1457,7 +1460,7 @@ void NativeShutdown() {
 
 	Achievements::Shutdown();
 
-	if (g_Config.bAchievementsEnable) {
+	if (g_Config.GetRuntimeNativeAppSettings().achievementsEnable) {
 		FILE *iconCacheFile = File::OpenCFile(GetSysDirectory(DIRECTORY_CACHE) / "icon.cache", "wb");
 		if (iconCacheFile) {
 			g_iconCache.SaveToFile(iconCacheFile);

@@ -195,6 +195,15 @@ public:
 		float uiTint;
 		float uiSaturation;
 	};
+	struct RuntimeNativeAppSettings {
+		bool dumpFrames;
+		bool dumpVideoOutput;
+		bool achievementsEnable;
+		bool remoteShareOnStartup;
+		bool remoteDebuggerOnStartup;
+		int gpuBackend;
+		std::string audioDevice;
+	};
 	struct RuntimeDrawEngineSettings {
 		bool vertexDecoderJit;
 		int cpuCore;
@@ -303,6 +312,17 @@ public:
 			bGpuLogProfiler,
 			fUITint,
 			fUISaturation,
+		};
+	}
+	RuntimeNativeAppSettings GetRuntimeNativeAppSettings() const {
+		return RuntimeNativeAppSettings{
+			bDumpFrames,
+			bDumpVideoOutput,
+			bAchievementsEnable,
+			bRemoteShareOnStartup,
+			bRemoteDebuggerOnStartup,
+			iGPUBackend,
+			sAudioDevice,
 		};
 	}
 	RuntimeDrawEngineSettings GetRuntimeDrawEngineSettings() const {
