@@ -207,6 +207,16 @@ public:
 		bool ignoreBadMemAccess;
 		bool softwareSkinning;
 	};
+	struct RuntimeTextureSettings {
+		int replacementTextureLoadSpeed;
+		int debugOverlay;
+		int anisotropyLevel;
+		int texFiltering;
+		int internalResolution;
+		bool saveNewTextures;
+		bool textureBackoffCache;
+		int texScalingLevel;
+	};
 
 	~Config();
 
@@ -260,6 +270,18 @@ public:
 		return RuntimeGPUExecutionSettings{
 			bIgnoreBadMemAccess,
 			bSoftwareSkinning,
+		};
+	}
+	RuntimeTextureSettings GetRuntimeTextureSettings() const {
+		return RuntimeTextureSettings{
+			iReplacementTextureLoadSpeed,
+			iDebugOverlay,
+			iAnisotropyLevel,
+			iTexFiltering,
+			iInternalResolution,
+			bSaveNewTextures,
+			bTextureBackoffCache,
+			iTexScalingLevel,
 		};
 	}
 

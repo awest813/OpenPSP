@@ -123,6 +123,7 @@ void TextureCacheCommon::StartFrame() {
 	textureShaderCache_->Decimate();
 	timesInvalidatedAllThisFrame_ = 0;
 	replacementTimeThisFrame_ = 0.0;
+	const auto textureSettings = g_Config.GetRuntimeTextureSettings();
 
 	float fps;
 	__DisplayGetFPS(nullptr, &fps, nullptr);
@@ -131,7 +132,7 @@ void TextureCacheCommon::StartFrame() {
 	}
 
 	float baseValue = 0.5f;
-	switch (g_Config.iReplacementTextureLoadSpeed) {
+	switch (textureSettings.replacementTextureLoadSpeed) {
 	case (int)ReplacementTextureLoadSpeed::SLOW:
 		baseValue = 0.5f;
 		break;
@@ -149,7 +150,7 @@ void TextureCacheCommon::StartFrame() {
 	// Allow spending half a frame on uploading textures.
 	replacementFrameBudgetSeconds_ = baseValue / fps;
 
-	if ((DebugOverlay)g_Config.iDebugOverlay == DebugOverlay::DEBUG_STATS) {
+	if ((DebugOverlay)textureSettings.debugOverlay == DebugOverlay::DEBUG_STATS) {
 		gpuStats.numReplacerTrackedTex = replacer_.GetNumTrackedTextures();
 		gpuStats.numCachedReplacedTextures = replacer_.GetNumCachedReplacedTextures();
 	}
@@ -184,6 +185,7 @@ static int TexLog2(float delta) {
 
 SamplerCacheKey TextureCacheCommon::GetSamplingParams(int maxLevel, const TexCacheEntry *entry) {
 	SamplerCacheKey key{};
+	const auto textureSettings = g_Config.GetRuntimeTextureSettings();
 
 	int minFilt = gstate.texfilter & 0x7;
 	key.minFilt = minFilt & 1;
@@ -224,7 +226,7 @@ SamplerCacheKey TextureCacheCommon::GetSamplingParams(int maxLevel, const TexCac
 			key.maxLevel = maxLevel * 256;
 			key.minLevel = 0;
 			key.lodBias = (int)(lodBias * 256.0f);
-			if (gstate_c.Use(GPU_USE_ANISOTROPY) && g_Config.iAnisotropyLevel > 0) {
+			if (gstate_c.Use(GPU_USE_ANISOTROPY) && textureSettings.anisotropyLevel > 0) {
 				key.aniso = true;
 			}
 			break;
@@ -260,18 +262,18 @@ SamplerCacheKey TextureCacheCommon::GetSamplingParams(int maxLevel, const TexCac
 			key.mipEnable = true;
 			key.mipFilt = 1;
 			key.maxLevel = 9 * 256;
-			if (gstate_c.Use(GPU_USE_ANISOTROPY) && g_Config.iAnisotropyLevel > 0) {
+			if (gstate_c.Use(GPU_USE_ANISOTROPY) && textureSettings.anisotropyLevel > 0) {
 				key.aniso = true;
 			}
 		}
 		useReplacerFiltering = entry->replacedTexture->ForceFiltering(&forceFiltering);
 	}
 	if (!useReplacerFiltering) {
-		switch (g_Config.iTexFiltering) {
+		switch (textureSettings.texFiltering) {
 		case TEX_FILTER_AUTO:
 			// Follow what the game wants. We just do a single heuristic change to avoid bleeding of wacky color test colors
 			// in higher resolution (used by some games for sprites, and they accidentally have linear filter on).
-			if (gstate.isModeThrough() && g_Config.iInternalResolution != 1) {
+			if (gstate.isModeThrough() && textureSettings.internalResolution != 1) {
 				bool uglyColorTest = gstate.isColorTestEnabled() && !IsColorTestTriviallyTrue() && gstate.getColorTestRef() != 0;
 				if (uglyColorTest)
 					forceFiltering = TEX_FILTER_FORCE_NEAREST;
@@ -294,10 +296,10 @@ SamplerCacheKey TextureCacheCommon::GetSamplingParams(int maxLevel, const TexCac
 		case TEX_FILTER_AUTO_MAX_QUALITY:
 		default:
 			forceFiltering = TEX_FILTER_AUTO_MAX_QUALITY;
-			if (gstate_c.Use(GPU_USE_ANISOTROPY) && g_Config.iAnisotropyLevel > 0) {
+			if (gstate_c.Use(GPU_USE_ANISOTROPY) && textureSettings.anisotropyLevel > 0) {
 				key.aniso = true;
 			}
-			if (gstate.isModeThrough() && g_Config.iInternalResolution != 1) {
+			if (gstate.isModeThrough() && textureSettings.internalResolution != 1) {
 				bool uglyColorTest = gstate.isColorTestEnabled() && !IsColorTestTriviallyTrue() && gstate.getColorTestRef() != 0;
 				if (uglyColorTest) {
 					forceFiltering = TEX_FILTER_FORCE_NEAREST;
@@ -340,9 +342,10 @@ SamplerCacheKey TextureCacheCommon::GetSamplingParams(int maxLevel, const TexCac
 
 SamplerCacheKey TextureCacheCommon::GetFramebufferSamplingParams(u16 bufferWidth, u16 bufferHeight) {
 	SamplerCacheKey key = GetSamplingParams(0, nullptr);
+	const auto textureSettings = g_Config.GetRuntimeTextureSettings();
 
 	// In case auto max quality was on, restore min filt. Another fix for water in Outrun.
-	if (g_Config.iTexFiltering == TEX_FILTER_AUTO_MAX_QUALITY) {
+	if (textureSettings.texFiltering == TEX_FILTER_AUTO_MAX_QUALITY) {
 		int minFilt = gstate.texfilter & 0x7;
 		key.minFilt = minFilt & 1;
 	}
@@ -557,6 +560,7 @@ TexCacheEntry *TextureCacheCommon::SetTexture() {
 			int h0 = gstate.getTextureHeight(0);
 			int d0 = 1;
 			if (entry->replacedTexture) {
+				const auto textureSettings = g_Config.GetRuntimeTextureSettings();
 				PollReplacement(entry, &w0, &h0, &d0);
 				// This texture is pending a replacement load.
 				// So check the replacer if it's reached a conclusion.
@@ -565,7 +569,7 @@ TexCacheEntry *TextureCacheCommon::SetTexture() {
 					// Didn't find a replacement, so stop looking.
 					// DEBUG_LOG(Log::G3D, "No replacement for texture %dx%d", w0, h0);
 					entry->status &= ~TexCacheEntry::STATUS_TO_REPLACE;
-					if (g_Config.bSaveNewTextures) {
+					if (textureSettings.saveNewTextures) {
 						// Load it once more to actually save it. Since we don't set STATUS_TO_REPLACE, we won't end up looping.
 						match = false;
 						reason = "replacing";
@@ -649,10 +653,13 @@ TexCacheEntry *TextureCacheCommon::SetTexture() {
 		if (PPGeIsFontTextureAddress(texaddr)) {
 			// It's the builtin font texture.
 			entry->status = TexCacheEntry::STATUS_RELIABLE;
-		} else if (g_Config.bTextureBackoffCache && !IsVideo(texaddr)) {
-			entry->status = TexCacheEntry::STATUS_HASHING;
 		} else {
-			entry->status = TexCacheEntry::STATUS_UNRELIABLE;
+			const auto textureSettings = g_Config.GetRuntimeTextureSettings();
+			if (textureSettings.textureBackoffCache && !IsVideo(texaddr)) {
+				entry->status = TexCacheEntry::STATUS_HASHING;
+			} else {
+				entry->status = TexCacheEntry::STATUS_UNRELIABLE;
+			}
 		}
 
 		if (hasClutGPU) {
@@ -1319,7 +1326,8 @@ bool TextureCacheCommon::GetCurrentFramebufferTextureDebug(GPUDebugBuffer &buffe
 }
 
 void TextureCacheCommon::NotifyConfigChanged() {
-	int scaleFactor = g_Config.iTexScalingLevel;
+	const auto textureSettings = g_Config.GetRuntimeTextureSettings();
+	int scaleFactor = textureSettings.texScalingLevel;
 
 	if (!gstate_c.Use(GPU_USE_TEXTURE_NPOT)) {
 		// Reduce the scale factor to a power of two (e.g. 2 or 4) if textures must be a power of two.
@@ -1627,7 +1635,8 @@ void TextureCacheCommon::PollReplacement(TexCacheEntry *entry, int *w, int *h, i
 	// Unless the mode is set to Instant (where the user explicitly wants to wait for each texture),
 	// it's just a waste of time to wait here really. OK, we might get a texture one frame early but
 	// we wasted a lot of time waiting, likely slowing down our framerate.
-	if (g_Config.iReplacementTextureLoadSpeed != ReplacementTextureLoadSpeed::INSTANT) {
+	const auto textureSettings = g_Config.GetRuntimeTextureSettings();
+	if (textureSettings.replacementTextureLoadSpeed != (int)ReplacementTextureLoadSpeed::INSTANT) {
 		waitBudget = 0.0;
 	}
 	if (entry->replacedTexture->Poll(waitBudget)) {
@@ -2596,9 +2605,10 @@ bool TextureCacheCommon::CheckFullHash(TexCacheEntry *entry, bool &doDelete) {
 	int h = gstate.getTextureHeight(0);
 	bool isVideo = IsVideo(entry->addr);
 	bool swizzled = gstate.isTextureSwizzled();
+	const auto textureSettings = g_Config.GetRuntimeTextureSettings();
 
 	// Don't even check the texture, just assume it has changed.
-	if (isVideo && g_Config.bTextureBackoffCache) {
+	if (isVideo && textureSettings.textureBackoffCache) {
 		// Attempt to ensure the hash doesn't incorrectly match in if the video stops.
 		entry->fullhash = (entry->fullhash + 0xA535A535) * 11 + (entry->fullhash & 4);
 		return false;
@@ -2611,7 +2621,7 @@ bool TextureCacheCommon::CheckFullHash(TexCacheEntry *entry, bool &doDelete) {
 	}
 
 	if (fullhash == entry->fullhash) {
-		if (g_Config.bTextureBackoffCache && !isVideo) {
+		if (textureSettings.textureBackoffCache && !isVideo) {
 			if (entry->GetHashStatus() != TexCacheEntry::STATUS_HASHING && entry->numFrames > TexCacheEntry::FRAMES_REGAIN_TRUST) {
 				// Reset to STATUS_HASHING.
 				entry->SetHashStatus(TexCacheEntry::STATUS_HASHING);
@@ -2698,7 +2708,8 @@ void TextureCacheCommon::Invalidate(u32 addr, int size, GPUInvalidationType type
 	}
 
 	// If we're hashing every use, without backoff, then this isn't needed.
-	if (!g_Config.bTextureBackoffCache && type != GPU_INVALIDATE_FORCE) {
+	const auto textureSettings = g_Config.GetRuntimeTextureSettings();
+	if (!textureSettings.textureBackoffCache && type != GPU_INVALIDATE_FORCE) {
 		return;
 	}
 
@@ -2744,7 +2755,8 @@ void TextureCacheCommon::Invalidate(u32 addr, int size, GPUInvalidationType type
 
 void TextureCacheCommon::InvalidateAll(GPUInvalidationType /*unused*/) {
 	// If we're hashing every use, without backoff, then this isn't needed.
-	if (!g_Config.bTextureBackoffCache) {
+	const auto textureSettings = g_Config.GetRuntimeTextureSettings();
+	if (!textureSettings.textureBackoffCache) {
 		return;
 	}
 
