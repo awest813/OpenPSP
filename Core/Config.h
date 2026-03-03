@@ -224,6 +224,18 @@ public:
 		int wlanAdhocChannel;
 		bool enableAdhocServer;
 	};
+	struct RuntimeInfrastructureNetworkSettings {
+		bool allowSavestateWhileConnected;
+		bool allowSpeedControlWhileConnected;
+		bool infrastructureAutoDNS;
+		bool dontDownloadInfraJson;
+		std::string infrastructureDNSServer;
+		const std::map<std::string, std::string> *hostToAlias;
+		int portOffset;
+		bool enableUPnP;
+		bool upnpUseOriginalPort;
+		int minTimeout;
+	};
 	struct RuntimeDrawEngineSettings {
 		bool vertexDecoderJit;
 		int cpuCore;
@@ -369,6 +381,20 @@ public:
 			sMACAddress,
 			iWlanAdhocChannel,
 			bEnableAdhocServer,
+		};
+	}
+	RuntimeInfrastructureNetworkSettings GetRuntimeInfrastructureNetworkSettings() const {
+		return RuntimeInfrastructureNetworkSettings{
+			bAllowSavestateWhileConnected,
+			bAllowSpeedControlWhileConnected,
+			bInfrastructureAutoDNS,
+			bDontDownloadInfraJson,
+			sInfrastructureDNSServer,
+			&mHostToAlias,
+			iPortOffset,
+			bEnableUPnP,
+			bUPnPUseOriginalPort,
+			iMinTimeout,
 		};
 	}
 	RuntimeDrawEngineSettings GetRuntimeDrawEngineSettings() const {

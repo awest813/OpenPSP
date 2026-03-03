@@ -140,7 +140,8 @@ bool IsNetworkConnected() {
 }
 
 bool NetworkWarnUserIfOnlineAndCantSavestate() {
-	if (IsNetworkConnected() && !g_Config.bAllowSavestateWhileConnected) {
+	const auto infraSettings = g_Config.GetRuntimeInfrastructureNetworkSettings();
+	if (IsNetworkConnected() && !infraSettings.allowSavestateWhileConnected) {
 		auto nw = GetI18NCategory(I18NCat::NETWORKING);
 		g_OSD.Show(OSDType::MESSAGE_INFO, nw->T("Save states are not available when online"), 3.0f, "saveonline");
 		return true;
@@ -150,7 +151,8 @@ bool NetworkWarnUserIfOnlineAndCantSavestate() {
 }
 
 bool NetworkWarnUserIfOnlineAndCantSpeed() {
-	if (IsNetworkConnected() && !g_Config.bAllowSpeedControlWhileConnected) {
+	const auto infraSettings = g_Config.GetRuntimeInfrastructureNetworkSettings();
+	if (IsNetworkConnected() && !infraSettings.allowSpeedControlWhileConnected) {
 		auto nw = GetI18NCategory(I18NCat::NETWORKING);
 		g_OSD.Show(OSDType::MESSAGE_INFO, nw->T("Speed controls are not available when online"), 3.0f, "speedonline");
 		return true;
@@ -160,11 +162,11 @@ bool NetworkWarnUserIfOnlineAndCantSpeed() {
 }
 
 bool NetworkAllowSpeedControl() {
-	return !IsNetworkConnected() || g_Config.bAllowSpeedControlWhileConnected;
+	return !IsNetworkConnected() || g_Config.GetRuntimeInfrastructureNetworkSettings().allowSpeedControlWhileConnected;
 }
 
 bool NetworkAllowSaveState() {
-	return !IsNetworkConnected() || g_Config.bAllowSavestateWhileConnected;
+	return !IsNetworkConnected() || g_Config.GetRuntimeInfrastructureNetworkSettings().allowSavestateWhileConnected;
 }
 
 void AfterApctlMipsCall::DoState(PointerWrap & p) {
@@ -319,7 +321,7 @@ bool LoadDNSForGameID(std::string_view gameID, std::string_view jsonStr, InfraDN
 }
 
 bool LoadAutoDNS(std::string_view json) {
-	if (!g_Config.bInfrastructureAutoDNS) {
+	if (!g_Config.GetRuntimeInfrastructureNetworkSettings().infrastructureAutoDNS) {
 		return true;
 	}
 
@@ -380,7 +382,8 @@ void DeleteAutoDNSCacheFile() {
 }
 
 void StartInfraJsonDownload() {
-	if (!g_Config.bInfrastructureAutoDNS) {
+	const auto infraSettings = g_Config.GetRuntimeInfrastructureNetworkSettings();
+	if (!infraSettings.infrastructureAutoDNS) {
 		return;
 	}
 
@@ -388,14 +391,15 @@ void StartInfraJsonDownload() {
 		WARN_LOG(Log::sceNet, "json is already being downloaded. Still, starting a new download.");
 	}
 
-	if (!g_Config.bDontDownloadInfraJson) {
+	if (!infraSettings.dontDownloadInfraJson) {
 		const char * const acceptMime = "application/json, text/*; q=0.9, */*; q=0.8";
 		g_infraDL = g_DownloadManager.StartDownload(jsonUrl, Path(), http::RequestFlags::Cached24H, acceptMime);
 	}
 }
 
 bool PollInfraJsonDownload(std::string *jsonOutput) {
-	if (!g_Config.bInfrastructureAutoDNS) {
+	const auto infraSettings = g_Config.GetRuntimeInfrastructureNetworkSettings();
+	if (!infraSettings.infrastructureAutoDNS) {
 		INFO_LOG(Log::sceNet, "Auto DNS disabled, returning success");
 		jsonOutput->clear();
 		// In case there's an old request, get rid of it.
@@ -403,7 +407,7 @@ bool PollInfraJsonDownload(std::string *jsonOutput) {
 		return true;
 	}
 
-	if (g_Config.bDontDownloadInfraJson) {
+	if (infraSettings.dontDownloadInfraJson) {
 		NOTICE_LOG(Log::sceNet, "As specified by the ini setting DontDownloadInfraJson, using infra-dns.json directly from /assets");
 		size_t jsonSize = 0;
 		std::unique_ptr<uint8_t[]> jsonStr(g_VFS.ReadFile("infra-dns.json", &jsonSize));
@@ -466,16 +470,17 @@ bool PollInfraJsonDownload(std::string *jsonOutput) {
 
 std::string ProcessHostnameWithInfraDNS(const std::string &hostname) {
 	std::string resolvedHostname = hostname;
+	const auto infraSettings = g_Config.GetRuntimeInfrastructureNetworkSettings();
 	
 	// Resolve any aliases. First check the ini file, then check the hardcoded DNS config.
-	auto aliasIter = g_Config.mHostToAlias.find(hostname);
-	if (aliasIter != g_Config.mHostToAlias.end()) {
+	auto aliasIter = infraSettings.hostToAlias->find(hostname);
+	if (aliasIter != infraSettings.hostToAlias->end()) {
 		const std::string& alias = aliasIter->second;
 		INFO_LOG(Log::sceNet, "%s - Resolved alias %s from hostname %s", __FUNCTION__, alias.c_str(), hostname.c_str());
 		resolvedHostname = alias;
 	}
 
-	if (g_Config.bInfrastructureAutoDNS) {
+	if (infraSettings.infrastructureAutoDNS) {
 		// Also look up into the preconfigured fixed DNS JSON.
 		auto fixedDNSIter = GetInfraDNSConfig().fixedDNS.find(resolvedHostname);
 		if (fixedDNSIter != GetInfraDNSConfig().fixedDNS.end()) {
@@ -496,10 +501,10 @@ std::string ProcessHostnameWithInfraDNS(const std::string &hostname) {
 	// Now use the configured primary DNS server to do a lookup.
 	// If auto DNS, use the server from that config.
 	std::string dnsServer;
-	if (g_Config.bInfrastructureAutoDNS && !GetInfraDNSConfig().dns.empty()) {
+	if (infraSettings.infrastructureAutoDNS && !GetInfraDNSConfig().dns.empty()) {
 		dnsServer = GetInfraDNSConfig().dns;
 	} else {
-		dnsServer = g_Config.sInfrastructureDNSServer;
+		dnsServer = infraSettings.infrastructureDNSServer;
 	}
 
 	if (net::DirectDNSLookupIPV4(dnsServer.c_str(), resolvedHostname.c_str(), &resolvedAddr)) {
@@ -521,7 +526,7 @@ void InitLocalhostIP() {
 	g_localhostIP.in.sin_addr.s_addr = htonl(localIP);
 	g_localhostIP.in.sin_port = 0;
 
-	std::string serverStr(StripSpaces(g_Config.sProAdhocServer));
+	std::string serverStr(StripSpaces(g_Config.GetRuntimeAdhocSettings().proAdhocServer));
 	isLocalServer = (!strcasecmp(serverStr.c_str(), "localhost") || serverStr.find("127.") == 0);
 }
 
@@ -605,9 +610,10 @@ void __NetInit() {
 	g_infraDNSConfig = InfraDNSConfig();
 
 	// Windows: Assuming WSAStartup already called beforehand
-	portOffset = g_Config.iPortOffset;
-	isOriPort = g_Config.bEnableUPnP && g_Config.bUPnPUseOriginalPort;
-	minSocketTimeoutUS = g_Config.iMinTimeout * 1000UL;
+	const auto infraSettings = g_Config.GetRuntimeInfrastructureNetworkSettings();
+	portOffset = infraSettings.portOffset;
+	isOriPort = infraSettings.enableUPnP && infraSettings.upnpUseOriginalPort;
+	minSocketTimeoutUS = infraSettings.minTimeout * 1000UL;
 
 	// Init Default AdhocServer struct
 	g_adhocServerIP.in.sin_family = AF_INET;
@@ -1037,8 +1043,9 @@ static u32 sceWlanGetEtherAddr(u32 addrAddr) {
 		addr[0] &= 0xfc;
 	} else {
 		// Read MAC Address from config
-		if (!ParseMacAddress(g_Config.sMACAddress, addr)) {
-			ERROR_LOG(Log::sceNet, "Error parsing mac address %s", g_Config.sMACAddress.c_str());
+		const auto adhocSettings = g_Config.GetRuntimeAdhocSettings();
+		if (!ParseMacAddress(adhocSettings.macAddress, addr)) {
+			ERROR_LOG(Log::sceNet, "Error parsing mac address %s", adhocSettings.macAddress.c_str());
 			Memory::Memset(addrAddr, 0, 6);
 		}
 	}
@@ -1056,11 +1063,11 @@ static u32 sceNetGetLocalEtherAddr(u32 addrAddr) {
 }
 
 static u32 sceWlanDevIsPowerOn() {
-	return hleLogVerbose(Log::sceNet, g_Config.bEnableWlan ? 1 : 0);
+	return hleLogVerbose(Log::sceNet, g_Config.GetRuntimeAdhocSettings().enableWlan ? 1 : 0);
 }
 
 static u32 sceWlanGetSwitchState() {
-	return hleLogVerbose(Log::sceNet, g_Config.bEnableWlan ? 1 : 0);
+	return hleLogVerbose(Log::sceNet, g_Config.GetRuntimeAdhocSettings().enableWlan ? 1 : 0);
 }
 
 // Probably a void function, but often returns a useful value.
@@ -1166,7 +1173,7 @@ void NetApctl_InitInfo(int confId) {
 	memcpy(netApctlInfo.bssid, "\1\1\2\2\3\3", sizeof(netApctlInfo.bssid)); // fake AP's mac address
 	netApctlInfo.ssidLength = static_cast<unsigned int>(strlen(defaultNetSSID));
 	netApctlInfo.strength = 99;
-	netApctlInfo.channel = g_Config.iWlanAdhocChannel;
+	netApctlInfo.channel = g_Config.GetRuntimeAdhocSettings().wlanAdhocChannel;
 	if (netApctlInfo.channel == PSP_SYSTEMPARAM_ADHOC_CHANNEL_AUTOMATIC) netApctlInfo.channel = defaultWlanChannel;
 	// Get Local IP Address
 	sockaddr_in sockAddr;
@@ -1183,12 +1190,13 @@ void NetApctl_InitInfo(int confId) {
 	// Games (for example, Wipeout Pulse) often use this to perform their own DNS lookups through UDP, so we need to pass in the configured server.
 	// The reason we need autoconfig is that private Servers may need to use custom DNS Server - and most games are now
 	// best played on private servers (only a few official ones remain, if any).
-	if (g_Config.bInfrastructureAutoDNS) {
+	const auto infraSettings = g_Config.GetRuntimeInfrastructureNetworkSettings();
+	if (infraSettings.infrastructureAutoDNS) {
 		INFO_LOG(Log::sceNet, "Responding to game query with AutoDNS address: %s", g_infraDNSConfig.dns.c_str());
 		truncate_cpy(netApctlInfo.primaryDns, sizeof(netApctlInfo.primaryDns), g_infraDNSConfig.dns);
 	} else {
-		INFO_LOG(Log::sceNet, "Responding to game query with manual DNS address: %s", g_Config.sInfrastructureDNSServer.c_str());
-		truncate_cpy(netApctlInfo.primaryDns, sizeof(netApctlInfo.primaryDns), g_Config.sInfrastructureDNSServer);
+		INFO_LOG(Log::sceNet, "Responding to game query with manual DNS address: %s", infraSettings.infrastructureDNSServer.c_str());
+		truncate_cpy(netApctlInfo.primaryDns, sizeof(netApctlInfo.primaryDns), infraSettings.infrastructureDNSServer);
 	}
 
 	// We don't bother with a secondary DNS.
@@ -1467,7 +1475,7 @@ static int sceNetApctlDelHandler(u32 handlerID) {
 }
 
 int sceNetApctlConnect(int confId) {
-	if (!g_Config.bEnableWlan)
+	if (!g_Config.GetRuntimeAdhocSettings().enableWlan)
 		return hleLogError(Log::sceNet, SCE_NET_APCTL_ERROR_WLAN_SWITCH_OFF);
 
 	if (netApctlState != PSP_NET_APCTL_STATE_DISCONNECTED)
@@ -1530,7 +1538,7 @@ static int sceNetApctlGetState(u32 pStateAddr) {
 
 // This one logs like a syscall because it's called at the end of some.
 int NetApctl_ScanUser() {
-	if (!g_Config.bEnableWlan)
+	if (!g_Config.GetRuntimeAdhocSettings().enableWlan)
 		return hleLogError(Log::sceNet, SCE_NET_APCTL_ERROR_WLAN_SWITCH_OFF);
 
 	// Scan probably only works when not in connected state, right?
