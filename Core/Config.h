@@ -217,6 +217,13 @@ public:
 		bool textureBackoffCache;
 		int texScalingLevel;
 	};
+	struct RuntimeFramebufferSettings {
+		int bloomHack;
+		bool skipBufferEffects;
+		int internalResolution;
+		int skipGPUReadbackMode;
+		int gpuBackend;
+	};
 
 	~Config();
 
@@ -282,6 +289,15 @@ public:
 			bSaveNewTextures,
 			bTextureBackoffCache,
 			iTexScalingLevel,
+		};
+	}
+	RuntimeFramebufferSettings GetRuntimeFramebufferSettings() const {
+		return RuntimeFramebufferSettings{
+			iBloomHack,
+			bSkipBufferEffects,
+			iInternalResolution,
+			iSkipGPUReadbackMode,
+			iGPUBackend,
 		};
 	}
 

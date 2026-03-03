@@ -82,15 +82,16 @@ void FramebufferManagerCommon::Init(int msaaLevel) {
 // Returns true if we need to stop the render thread
 bool FramebufferManagerCommon::UpdateRenderSize(int msaaLevel) {
 	const bool newRender = renderWidth_ != (float)PSP_CoreParameter().renderWidth || renderHeight_ != (float)PSP_CoreParameter().renderHeight || msaaLevel_ != msaaLevel;
+	const auto framebufferSettings = g_Config.GetRuntimeFramebufferSettings();
 
-	int effectiveBloomHack = g_Config.iBloomHack;
+	int effectiveBloomHack = framebufferSettings.bloomHack;
 	if (PSP_CoreParameter().compat.flags().ForceLowerResolutionForEffectsOn) {
 		effectiveBloomHack = 3;
 	} else if (PSP_CoreParameter().compat.flags().ForceLowerResolutionForEffectsOff) {
 		effectiveBloomHack = 0;
 	}
 
-	bool newBuffered = !g_Config.bSkipBufferEffects;
+	bool newBuffered = !framebufferSettings.skipBufferEffects;
 	const bool newSettings = bloomHack_ != effectiveBloomHack || useBufferedRendering_ != newBuffered;
 
 	renderWidth_ = (float)PSP_CoreParameter().renderWidth;
@@ -1857,7 +1858,8 @@ void FramebufferManagerCommon::ResizeFramebufFBO(VirtualFramebuffer *vfb, int w,
 		force1x = true;
 	}
 
-	if (force1x && g_Config.iInternalResolution != 1) {
+	const auto framebufferSettings = g_Config.GetRuntimeFramebufferSettings();
+	if (force1x && framebufferSettings.internalResolution != 1) {
 		vfb->renderScaleFactor = 1;
 		vfb->renderWidth = vfb->bufferWidth;
 		vfb->renderHeight = vfb->bufferHeight;
@@ -2792,7 +2794,8 @@ SkipGPUReadbackMode FramebufferManagerCommon::GetSkipGPUReadbackMode() {
 	if (PSP_CoreParameter().compat.flags().ForceEnableGPUReadback) {
 		return SkipGPUReadbackMode::NO_SKIP;
 	} else {
-		return (SkipGPUReadbackMode)g_Config.iSkipGPUReadbackMode;
+		const auto framebufferSettings = g_Config.GetRuntimeFramebufferSettings();
+		return (SkipGPUReadbackMode)framebufferSettings.skipGPUReadbackMode;
 	}
 }
 
@@ -3145,7 +3148,8 @@ bool GetOutputFramebuffer(Draw::DrawContext *draw, GPUDebugBuffer &buffer) {
 	if (fmt != Draw::DataFormat::B8G8R8A8_UNORM)
 		fmt = Draw::DataFormat::R8G8B8A8_UNORM;
 
-	bool flipped = g_Config.iGPUBackend == (int)GPUBackend::OPENGL;
+	const auto framebufferSettings = g_Config.GetRuntimeFramebufferSettings();
+	bool flipped = framebufferSettings.gpuBackend == (int)GPUBackend::OPENGL;
 
 	buffer.Allocate(w, h, fmt == Draw::DataFormat::R8G8B8A8_UNORM ? GPU_DBG_FORMAT_8888 : GPU_DBG_FORMAT_8888_BGRA, flipped);
 	buffer.SetIsBackbuffer(true);
