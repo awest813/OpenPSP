@@ -228,6 +228,16 @@ public:
 		int cpuCore;
 		bool ignoreBadMemAccess;
 	};
+	struct RuntimeSystemSettings {
+		bool skipBufferEffects;
+		bool softwareRendering;
+		int skipGPUReadbackMode;
+		int lockedCPUSpeed;
+		int pspModel;
+		bool autoSaveSymbolMap;
+		bool cacheFullIsoInRam;
+		bool funcHashMap;
+	};
 
 	~Config();
 
@@ -308,6 +318,18 @@ public:
 		return RuntimeMemoryAccessSettings{
 			iCpuCore,
 			bIgnoreBadMemAccess,
+		};
+	}
+	RuntimeSystemSettings GetRuntimeSystemSettings() const {
+		return RuntimeSystemSettings{
+			bSkipBufferEffects,
+			bSoftwareRendering,
+			iSkipGPUReadbackMode,
+			iLockedCPUSpeed,
+			iPSPModel,
+			bAutoSaveSymbolMap,
+			bCacheFullIsoInRam,
+			bFuncHashMap,
 		};
 	}
 

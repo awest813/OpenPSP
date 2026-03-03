@@ -249,22 +249,23 @@ static void GetBootError(IdentifiedFileType type, std::string *errorString) {
 }
 
 static void ShowCompatWarnings(const Compatibility &compat) {
+	const auto systemSettings = g_Config.GetRuntimeSystemSettings();
 	// UI changes are best done after PSP_InitStart.
-	if (compat.flags().RequireBufferedRendering && g_Config.bSkipBufferEffects && !g_Config.bSoftwareRendering) {
+	if (compat.flags().RequireBufferedRendering && systemSettings.skipBufferEffects && !systemSettings.softwareRendering) {
 		auto gr = GetI18NCategory(I18NCat::GRAPHICS);
 		g_OSD.Show(OSDType::MESSAGE_WARNING, gr->T("BufferedRenderingRequired", "Warning: This game requires Rendering Mode to be set to Buffered."), 10.0f, "bufreq");
 	} else {
 		g_OSD.CancelById("bufreq");
 	}
 
-	if (compat.flags().RequireBlockTransfer && g_Config.iSkipGPUReadbackMode != (int)SkipGPUReadbackMode::NO_SKIP && !PSP_CoreParameter().compat.flags().ForceEnableGPUReadback) {
+	if (compat.flags().RequireBlockTransfer && systemSettings.skipGPUReadbackMode != (int)SkipGPUReadbackMode::NO_SKIP && !PSP_CoreParameter().compat.flags().ForceEnableGPUReadback) {
 		auto gr = GetI18NCategory(I18NCat::GRAPHICS);
 		g_OSD.Show(OSDType::MESSAGE_WARNING, gr->T("BlockTransferRequired", "Warning: This game requires Skip GPU Readbacks be set to No."), 10.0f, "blockxfer");
 	} else {
 		g_OSD.CancelById("blockxfer");
 	}
 
-	if (compat.flags().RequireDefaultCPUClock && g_Config.iLockedCPUSpeed != 0) {
+	if (compat.flags().RequireDefaultCPUClock && systemSettings.lockedCPUSpeed != 0) {
 		auto gr = GetI18NCategory(I18NCat::GRAPHICS);
 		g_OSD.Show(OSDType::MESSAGE_WARNING, gr->T("DefaultCPUClockRequired", "Warning: This game requires the CPU clock to be set to default."), 10.0f, "defaultclock");
 	} else {
@@ -282,7 +283,8 @@ static bool CPU_Init(FileLoader *fileLoader, IdentifiedFileType type, std::strin
 
 	g_RemasterMode = false;
 	g_DoubleTextureCoordinates = false;
-	Memory::g_PSPModel = g_Config.iPSPModel;
+	const auto systemSettings = g_Config.GetRuntimeSystemSettings();
+	Memory::g_PSPModel = systemSettings.pspModel;
 
 	g_CoreParameter.fileType = type;
 
@@ -497,7 +499,7 @@ static bool CPU_Init(FileLoader *fileLoader, IdentifiedFileType type, std::strin
 	// Update things that depend on game-specific config here.
 
 	// Compat settings can override the software renderer, take care of that here.
-	if (g_Config.bSoftwareRendering || g_CoreParameter.compat.flags().ForceSoftwareRenderer) {
+	if (systemSettings.softwareRendering || g_CoreParameter.compat.flags().ForceSoftwareRenderer) {
 		g_CoreParameter.gpuCore = GPUCORE_SOFTWARE;
 	}
 
@@ -511,7 +513,8 @@ void CPU_Shutdown(bool success) {
 
 	GPURecord::Replay_Unload();
 
-	if (g_Config.bAutoSaveSymbolMap && success) {
+	const auto systemSettings = g_Config.GetRuntimeSystemSettings();
+	if (systemSettings.autoSaveSymbolMap && success) {
 		SaveSymbolMapIfSupported();
 	}
 
@@ -621,9 +624,10 @@ bool PSP_InitStart(const CoreParameter &coreParam) {
 
 		IdentifiedFileType fileType;
 		FileLoader *loadedFile = ResolveFileLoaderTarget(ConstructFileLoader(filename), &fileType, errorString);
+		const auto systemSettings = g_Config.GetRuntimeSystemSettings();
 
 		if (System_GetPropertyBool(SYSPROP_ENOUGH_RAM_FOR_FULL_ISO)) {
-			if (g_Config.bCacheFullIsoInRam) {
+			if (systemSettings.cacheFullIsoInRam) {
 				switch (fileType) {
 				case IdentifiedFileType::PSP_ISO:
 				case IdentifiedFileType::PSP_ISO_NP:
@@ -741,7 +745,8 @@ void PSP_Shutdown(bool success) {
 
 	Core_Stop();
 
-	if (g_Config.bFuncHashMap) {
+	const auto systemSettings = g_Config.GetRuntimeSystemSettings();
+	if (systemSettings.funcHashMap) {
 		MIPSAnalyst::StoreHashMap();
 	}
 
