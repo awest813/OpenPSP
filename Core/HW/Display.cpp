@@ -74,13 +74,14 @@ static double lastFrameTimeHistory = 0.0;
 
 static void CalculateFPS() {
 	double now = time_now_d();
+	const auto displaySettings = g_Config.GetRuntimeDisplayTimingSettings();
 
 	if (now >= lastFpsTime + 1.0) {
 		double frames = (numVBlanks - lastFpsFrame);
 		actualFps = (float)(actualFlips - lastActualFlips);
 
 		fps = frames / (now - lastFpsTime);
-		flips = (float)(g_Config.iDisplayRefreshRate * (double)(gpuStats.numFlips - lastNumFlips) / frames);
+		flips = (float)(displaySettings.displayRefreshRate * (double)(gpuStats.numFlips - lastNumFlips) / frames);
 
 		lastFpsFrame = numVBlanks;
 		lastNumFlips = gpuStats.numFlips;
@@ -94,7 +95,7 @@ static void CalculateFPS() {
 		}
 	}
 
-	if ((DebugOverlay)g_Config.iDebugOverlay == DebugOverlay::FRAME_GRAPH || coreCollectDebugStats) {
+	if ((DebugOverlay)displaySettings.debugOverlay == DebugOverlay::FRAME_GRAPH || coreCollectDebugStats) {
 		frameTimeHistory[frameTimeHistoryPos++] = (float)(now - lastFrameTimeHistory);
 		lastFrameTimeHistory = now;
 		frameTimeHistoryPos = frameTimeHistoryPos % frameTimeHistorySize;
