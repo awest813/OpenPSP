@@ -179,6 +179,13 @@ public:
 
 	int iRunCount; // To be used to for example check for updates every 10 runs and things like that.
 
+	// OpenPSP Social Hub (Phase 2 — lightweight local profile; not synced)
+	bool bSocialHubOnboardingComplete = false;
+	int iSocialHubFavoriteLane = -1; // index into hub lane list, or -1 for none
+	std::string sSocialHubDisplayName;
+	std::string sSocialHubStatusLine;
+	std::string sSocialHubPinnedGames; // comma-separated, user-defined
+
 	// Debugger
 	bool bAutoRun;  // start immediately
 	bool bBreakOnFrameTimeout;  // not saved
