@@ -138,6 +138,7 @@ public:
 
 protected:
 	void CreateViews() override;
+	void CreateSocialHubTab();
 	void CreateRecentTab();
 	GameBrowser *CreateBrowserTab(const Path &path, std::string_view title, std::string_view howToTitle, std::string_view howToUri, BrowseFlags browseFlags, bool *bGridView, float *scrollPos);
 	void CreateMainButtons(UI::ViewGroup *parent, bool vertical);

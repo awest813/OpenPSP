@@ -1160,7 +1160,7 @@ static const ConfigSetting upgradeSettings[] = {
 };
 
 static const ConfigSetting themeSettings[] = {
-	ConfigSetting("ThemeName", SETTING(g_Config, sThemeName), "Default", CfgFlag::DEFAULT),
+	ConfigSetting("ThemeName", SETTING(g_Config, sThemeName), "OpenPSP", CfgFlag::DEFAULT),
 };
 
 static const ConfigSetting vrSettings[] = {

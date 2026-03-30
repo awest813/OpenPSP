@@ -582,6 +582,75 @@ void DirButton::Draw(UIContext &dc) {
 	DrawIconWithText(dc, image, text, bounds_, gridStyle_, style);
 }
 
+// Social hub lane card — one card per multiplayer lane.
+struct SocialLaneInfo {
+	const char *name;
+	const char *subtitle;
+	const char *games;
+	uint32_t accentColor;
+};
+
+static const SocialLaneInfo kSocialLanes[] = {
+	{ "Fight Club",      "Competitive 1-on-1",   "Tekken 6 \xC2\xB7 Dissidia 012 \xC2\xB7 Darkstalkers Chronicle \xC2\xB7 Power Stone Collection", 0xFF2244CC },
+	{ "Hunter Lodge",    "Co-op progression",    "Monster Hunter Freedom Unite \xC2\xB7 Phantasy Star Portable 2",                                   0xFF226622 },
+	{ "Shooter Block",  "Tactical multiplayer",  "SOCOM Fireteam Bravo \xC2\xB7 Resistance: Retribution \xC2\xB7 Coded Arms",                        0xFF883311 },
+	{ "Weird UMD Zone", "Party & oddball picks", "Half-Minute Hero \xC2\xB7 Work Time Fun \xC2\xB7 Fat Princess \xC2\xB7 Power Stone Collection",    0xFF664488 },
+};
+
+class SocialLaneView : public UI::Clickable {
+public:
+	SocialLaneView(const SocialLaneInfo &lane, UI::LayoutParams *lp = nullptr)
+		: UI::Clickable(lp), lane_(lane) {}
+
+	void GetContentDimensions(const UIContext &dc, float &w, float &h) const override {
+		w = UI::FILL_PARENT;
+		h = 88.0f;
+	}
+
+	void Draw(UIContext &dc) override {
+		using namespace UI;
+
+		const Style &style = HasFocus() ? dc.GetTheme().itemFocusedStyle
+			: (down_ ? dc.GetTheme().itemDownStyle : dc.GetTheme().itemStyle);
+
+		// Card background
+		dc.FillRect(style.background, bounds_);
+
+		// Accent strip on the left edge (5 px wide)
+		Bounds accentBar = bounds_;
+		accentBar.w = 5.0f;
+		uint32_t accent = lane_.accentColor;
+		if (HasFocus() || down_) {
+			// Brighten when focused/pressed
+			accent = colorBlend(accent, 0xFFFFFFFF, 0.35f);
+		}
+		dc.FillRect(Drawable(accent), accentBar);
+
+		const float pad = 16.0f;
+		const float titleX = bounds_.x + pad + 5.0f + 8.0f;
+
+		// Lane name
+		dc.SetFontScale(1.0f, 1.0f);
+		dc.SetFontStyle(dc.GetTheme().uiFont);
+		dc.DrawText(lane_.name, titleX, bounds_.y + 14.0f, style.fgColor, ALIGN_TOPLEFT);
+
+		// Subtitle in accent color
+		dc.SetFontScale(0.72f, 0.72f);
+		dc.DrawText(lane_.subtitle, titleX, bounds_.y + 42.0f, colorAlpha(accent, 0.9f), ALIGN_TOPLEFT);
+
+		// Games list in dim info color
+		dc.DrawText(lane_.games, titleX, bounds_.y + 63.0f,
+			colorAlpha(dc.GetTheme().infoStyle.fgColor, 0.7f), ALIGN_TOPLEFT);
+
+		dc.SetFontScale(1.0f, 1.0f);
+		dc.SetFontStyle(dc.GetTheme().uiFont);
+		dc.RebindTexture();
+	}
+
+private:
+	SocialLaneInfo lane_;
+};
+
 GameBrowser::GameBrowser(int token, const Path &path, BrowseFlags browseFlags, bool portrait, bool *gridStyle, ScreenManager *screenManager, std::string_view lastText, std::string_view lastLink, UI::LayoutParams *layoutParams)
 	: LinearLayout(ORIENT_VERTICAL, layoutParams), gridStyle_(gridStyle), browseFlags_(browseFlags), portrait_(portrait), lastText_(lastText), lastLink_(lastLink), screenManager_(screenManager), token_(token) {
 	using namespace UI;
@@ -1161,6 +1230,35 @@ constexpr std::string_view getHomebrewUri = "https://www.ppsspp.org/gethomebrew"
 #endif
 constexpr std::string_view remoteGamesUri = "https://www.ppsspp.org/docs/reference/disc-streaming";
 
+void MainScreen::CreateSocialHubTab() {
+	using namespace UI;
+	auto mm = GetI18NCategory(I18NCat::MAINMENU);
+
+	ScrollView *scroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
+	scroll->SetTag("SocialHubTab");
+
+	LinearLayout *layout = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, Margins(12, 12, 12, 12)));
+	layout->SetSpacing(8.0f);
+
+	// Welcome header
+	layout->Add(new TextView("OpenPSP Social Hub", ALIGN_LEFT, true,
+		new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, Margins(8, 4, 8, 2))));
+	layout->Add(new TextView("Pick a lane — create a room — play like it's 2009.",
+		ALIGN_LEFT, true,
+		new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, Margins(8, 0, 8, 12))));
+
+	// Lane cards
+	for (const auto &lane : kSocialLanes) {
+		layout->Add(new SocialLaneView(lane,
+			new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
+	}
+
+	layout->Add(new Spacer(8.0f));
+
+	scroll->Add(layout);
+	tabHolder_->AddTab(mm->T("Hub"), ImageID::invalid(), scroll);
+}
+
 void MainScreen::CreateRecentTab() {
 	using namespace UI;
 	auto mm = GetI18NCategory(I18NCat::MAINMENU);
@@ -1292,20 +1390,10 @@ void MainScreen::CreateMainButtons(UI::ViewGroup *parent, bool portrait) {
 		parent->Add(portrait ? new Choice(ImageID("I_FOLDER_OPEN"), portrait ? new LinearLayoutParams() : nullptr) : new Choice(mm->T("Load", "Load...")))->OnClick.Handle(this, &MainScreen::OnLoadFile);
 	}
 	parent->Add(portrait ? new Choice(ImageID("I_GEAR"), portrait ? new LinearLayoutParams() : nullptr) : new Choice(mm->T("Game Settings", "Settings")))->OnClick.Handle(this, &MainScreen::OnGameSettings);
-	parent->Add(portrait ? new Choice(ImageID("I_INFO"), portrait ? new LinearLayoutParams() : nullptr) : new Choice(mm->T("About PPSSPP")))->OnClick.Handle(this, &MainScreen::OnCredits);
+	parent->Add(portrait ? new Choice(ImageID("I_INFO"), portrait ? new LinearLayoutParams() : nullptr) : new Choice(mm->T("About OpenPSP")))->OnClick.Handle(this, &MainScreen::OnCredits);
 
 	if (!portrait) {
-		parent->Add(new Choice(mm->T("www.ppsspp.org")))->OnClick.Handle(this, &MainScreen::OnPPSSPPOrg);
-	}
-
-	if (!System_GetPropertyBool(SYSPROP_APP_GOLD) && (System_GetPropertyInt(SYSPROP_DEVICE_TYPE) != DEVICE_TYPE_VR)) {
-		Choice *gold = parent->Add(portrait ? new Choice(ImageID("I_ICON_GOLD"), portrait ? new LinearLayoutParams() : nullptr) : new Choice(mm->T("Buy PPSSPP Gold")));
-		gold->OnClick.Add([this](UI::EventParams &) {
-			LaunchBuyGold(this->screenManager());
-		});
-		gold->SetIconRight(ImageID("I_ICON_GOLD"), 0.5f);
-		gold->SetImageScale(0.6f);  // for the left-icon in case of vertical.
-		gold->SetShine(true);
+		parent->Add(new Choice(mm->T("Join Discord"), ImageID("I_LOGO_DISCORD")))->OnClick.Handle(this, &MainScreen::OnPPSSPPOrg);
 	}
 
 	if (!portrait) {
@@ -1354,6 +1442,9 @@ void MainScreen::CreateViews() {
 
 	tabHolder_->SetClip(true);
 
+	// Social Hub tab is always first.
+	CreateSocialHubTab();
+
 	bool showRecent = g_Config.iMaxRecent > 0;
 	bool hasStorageAccess = !System_GetPropertyBool(SYSPROP_SUPPORTS_PERMISSIONS) ||
 		System_GetPermissionStatus(SYSTEM_PERMISSION_STORAGE) == PERMISSION_STATUS_GRANTED;
@@ -1401,8 +1492,8 @@ void MainScreen::CreateViews() {
 			buttonHolder->Add(new Spacer(new LinearLayoutParams(1.0f)));
 
 			leftColumn->Add(new Spacer(new LinearLayoutParams(0.1f)));
-			leftColumn->Add(new TextView(mm->T("SavesAreTemporary", "PPSSPP saving in temporary storage"), ALIGN_HCENTER, false));
-			leftColumn->Add(new TextView(mm->T("SavesAreTemporaryGuidance", "Extract PPSSPP somewhere to save permanently"), ALIGN_HCENTER, false));
+			leftColumn->Add(new TextView(mm->T("SavesAreTemporary", "OpenPSP saving in temporary storage"), ALIGN_HCENTER, false));
+			leftColumn->Add(new TextView(mm->T("SavesAreTemporaryGuidance", "Extract OpenPSP somewhere to save permanently"), ALIGN_HCENTER, false));
 			leftColumn->Add(new Spacer(10.0f));
 			leftColumn->Add(buttonHolder);
 			leftColumn->Add(new Spacer(new LinearLayoutParams(0.1f)));
@@ -1417,7 +1508,7 @@ void MainScreen::CreateViews() {
 
 		LinearLayout *buttonHolder = new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(WRAP_CONTENT, WRAP_CONTENT));
 		buttonHolder->Add(new Spacer(new LinearLayoutParams(1.0f)));
-		focusButton = new Button(mm->T("Give PPSSPP permission to access storage"), new LinearLayoutParams(WRAP_CONTENT, WRAP_CONTENT));
+		focusButton = new Button(mm->T("Give OpenPSP permission to access storage"), new LinearLayoutParams(WRAP_CONTENT, WRAP_CONTENT));
 		focusButton->SetPadding(32, 16);
 		buttonHolder->Add(focusButton)->OnClick.Handle(this, &MainScreen::OnAllowStorage);
 		buttonHolder->Add(new Spacer(new LinearLayoutParams(1.0f)));
@@ -1425,7 +1516,7 @@ void MainScreen::CreateViews() {
 		leftColumn->Add(new Spacer(new LinearLayoutParams(0.1f)));
 		leftColumn->Add(buttonHolder);
 		leftColumn->Add(new Spacer(10.0f));
-		leftColumn->Add(new TextView(mm->T("PPSSPP can't load games or save right now"), ALIGN_HCENTER, false));
+		leftColumn->Add(new TextView(mm->T("OpenPSP can't load games or save right now"), ALIGN_HCENTER, false));
 		leftColumn->Add(new Spacer(new LinearLayoutParams(0.1f)));
 	}
 
@@ -1500,7 +1591,7 @@ void MainScreen::CreateViews() {
 		UI::Drawable solid(0xFFbd9939);
 		upgradeBar->SetSpacing(5.0f);
 		upgradeBar->SetBG(solid);
-		std::string upgradeMessage(di->T("New version of PPSSPP available"));
+		std::string upgradeMessage(di->T("New version of OpenPSP available"));
 		if (!vertical) {
 			// The version only really fits in the horizontal layout.
 			upgradeMessage += ": " + g_Config.sUpgradeVersion;
@@ -1707,7 +1798,7 @@ void LaunchBuyGold(ScreenManager *screenManager) {
 }
 
 void MainScreen::OnPPSSPPOrg(UI::EventParams &e) {
-	System_LaunchUrl(LaunchUrlType::BROWSER_URL, "https://www.ppsspp.org");
+	System_LaunchUrl(LaunchUrlType::BROWSER_URL, "https://discord.gg/5NJB6dD");
 }
 
 void MainScreen::OnForums(UI::EventParams &e) {
