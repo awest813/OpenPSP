@@ -9,6 +9,7 @@
 #include <QMessageBox>
 #include <QDragEnterEvent>
 #include <QDropEvent>
+#include <QMoveEvent>
 #include <QMimeData>
 #include <QUrl>
 
@@ -54,6 +55,11 @@ MainWindow::MainWindow(QWidget *parent, bool fullscreen) :
 
 	// Enable drag and drop for ROM loading
 	setAcceptDrops(true);
+
+	// Restore window position if saved
+	if (g_Config.iWindowX >= 0 && g_Config.iWindowY >= 0) {
+		move(g_Config.iWindowX, g_Config.iWindowY);
+	}
 
 	QObject::connect(emugl, SIGNAL(doubleClick()), this, SLOT(fullscrAct()));
 	QObject::connect(emugl, SIGNAL(newFrame()), this, SLOT(newFrame()));
@@ -163,14 +169,21 @@ void MainWindow::openmsAct()
 
 static void SaveStateActionFinished(SaveState::Status status, std::string_view message)
 {
-	// TODO: Improve messaging?
 	if (status == SaveState::Status::FAILURE)
 	{
 		QMessageBox msgBox;
-		msgBox.setWindowTitle("Load Save State");
-		msgBox.setText("Savestate failure. Please try again later");
+		msgBox.setIcon(QMessageBox::Warning);
+		msgBox.setWindowTitle("Save State Error");
+		msgBox.setText("Failed to complete save state operation");
+		QString detailText = QString::fromUtf8(message.data(), message.size());
+		if (!detailText.isEmpty()) {
+			msgBox.setInformativeText(detailText);
+		}
+		msgBox.setStandardButtons(QMessageBox::Ok);
 		msgBox.exec();
-		return;
+	} else if (status == SaveState::Status::SUCCESS) {
+		// Show a brief success notification (optional)
+		// For now, silent success is fine
 	}
 }
 
@@ -298,6 +311,18 @@ void MainWindow::loadFileFromPath(const QString &path)
 		QFileInfo info(path);
 		g_Config.currentDirectory = Path(info.absolutePath().toStdString());
 		System_PostUIMessage(UIMessage::REQUEST_GAME_BOOT, path.toStdString());
+	}
+}
+
+void MainWindow::moveEvent(QMoveEvent *event)
+{
+	QMainWindow::moveEvent(event);
+
+	// Don't save position when fullscreen or minimized
+	if (!isFullScreen() && !isMinimized()) {
+		QPoint pos = event->pos();
+		g_Config.iWindowX = pos.x();
+		g_Config.iWindowY = pos.y();
 	}
 }
 

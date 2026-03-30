@@ -75,6 +75,9 @@ protected:
 	void dragEnterEvent(QDragEnterEvent *event);
 	void dropEvent(QDropEvent *event);
 
+	// Save window position when moved
+	void moveEvent(QMoveEvent *event);
+
 signals:
 	void retranslate();
 	void updateMenu();
