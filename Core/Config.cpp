@@ -279,6 +279,11 @@ static int DefaultScreenRotation() {
 static const ConfigSetting generalSettings[] = {
 	ConfigSetting("FirstRun", SETTING(g_Config, bFirstRun), true, CfgFlag::DEFAULT),
 	ConfigSetting("RunCount", SETTING(g_Config, iRunCount), 0, CfgFlag::DEFAULT),
+	ConfigSetting("SocialHubOnboardingComplete", SETTING(g_Config, bSocialHubOnboardingComplete), false, CfgFlag::DEFAULT),
+	ConfigSetting("SocialHubFavoriteLane", SETTING(g_Config, iSocialHubFavoriteLane), -1, CfgFlag::DEFAULT),
+	ConfigSetting("SocialHubDisplayName", SETTING(g_Config, sSocialHubDisplayName), "", CfgFlag::DEFAULT),
+	ConfigSetting("SocialHubStatusLine", SETTING(g_Config, sSocialHubStatusLine), "", CfgFlag::DEFAULT),
+	ConfigSetting("SocialHubPinnedGames", SETTING(g_Config, sSocialHubPinnedGames), "", CfgFlag::DEFAULT),
 	ConfigSetting("Enable Logging", SETTING(g_Config, bEnableLogging), true, CfgFlag::PER_GAME),
 	ConfigSetting("FileLogging", SETTING(g_Config, bEnableFileLogging), false, CfgFlag::PER_GAME),
 	ConfigSetting("AutoRun", SETTING(g_Config, bAutoRun), true, CfgFlag::DEFAULT),

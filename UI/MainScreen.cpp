@@ -18,6 +18,7 @@
 #include <algorithm>
 #include <cmath>
 #include <sstream>
+#include <vector>
 
 #include "ppsspp_config.h"
 
@@ -31,6 +32,7 @@
 #include "Common/UI/Context.h"
 #include "Common/UI/View.h"
 #include "Common/UI/ViewGroup.h"
+#include "Common/UI/PopupScreens.h"
 
 #include "Common/Data/Color/RGBAUtil.h"
 #include "Common/Data/Encoding/Utf8.h"
@@ -601,10 +603,18 @@ static const SocialLaneInfo kSocialLanes[] = {
 	{ "Strike Ops",      "Tactical co-op",        "Metal Gear Solid: Peace Walker \xC2\xB7 Killzone: Liberation \xC2\xB7 Tom Clancy's Ghost Recon Predator", 0xFF446688 },
 };
 
+static constexpr int kSocialLaneCount = sizeof(kSocialLanes) / sizeof(kSocialLanes[0]);
+
 class SocialLaneView : public UI::Clickable {
 public:
-	SocialLaneView(const SocialLaneInfo &lane, UI::LayoutParams *lp = nullptr)
-		: UI::Clickable(lp), lane_(lane) {}
+	SocialLaneView(const SocialLaneInfo &lane, int laneIndex, UI::LayoutParams *lp = nullptr)
+		: UI::Clickable(lp), lane_(lane), laneIndex_(laneIndex) {}
+
+protected:
+	void ClickInternal() override {
+		UI::Clickable::ClickInternal();
+		UI::PlayUISound(UI::UISound::CONFIRM);
+	}
 
 	void GetContentDimensions(const UIContext &dc, float &w, float &h) const override {
 		w = UI::FILL_PARENT;
@@ -633,10 +643,14 @@ public:
 		const float pad = 16.0f;
 		const float titleX = bounds_.x + pad + 5.0f + 8.0f;
 
-		// Lane name
+		// Lane name (★ when set as favorite in profile)
 		dc.SetFontScale(1.0f, 1.0f);
 		dc.SetFontStyle(dc.GetTheme().uiFont);
-		dc.DrawText(lane_.name, titleX, bounds_.y + 14.0f, style.fgColor, ALIGN_TOPLEFT);
+		std::string titleStr = lane_.name;
+		if (laneIndex_ >= 0 && laneIndex_ < kSocialLaneCount && g_Config.iSocialHubFavoriteLane == laneIndex_) {
+			titleStr += " \xE2\x98\x85";
+		}
+		dc.DrawText(titleStr, titleX, bounds_.y + 14.0f, style.fgColor, ALIGN_TOPLEFT);
 
 		// Subtitle in accent color
 		dc.SetFontScale(0.72f, 0.72f);
@@ -653,6 +667,7 @@ public:
 
 private:
 	SocialLaneInfo lane_;
+	int laneIndex_;
 };
 
 GameBrowser::GameBrowser(int token, const Path &path, BrowseFlags browseFlags, bool portrait, bool *gridStyle, ScreenManager *screenManager, std::string_view lastText, std::string_view lastLink, UI::LayoutParams *layoutParams)
@@ -1249,18 +1264,91 @@ void MainScreen::CreateSocialHubTab() {
 		new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, Margins(8, 4, 8, 2))));
 	layout->Add(new TextView("Pick a lane — create a room — play like it's 2009.",
 		ALIGN_LEFT, true,
-		new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, Margins(8, 0, 8, 12))));
+		new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, Margins(8, 0, 8, 8))));
+
+	// Local profile summary (Phase 2 — stored in config only)
+	if (!g_Config.sSocialHubDisplayName.empty() || !g_Config.sSocialHubStatusLine.empty() ||
+		!g_Config.sSocialHubPinnedGames.empty() ||
+		(g_Config.iSocialHubFavoriteLane >= 0 && g_Config.iSocialHubFavoriteLane < kSocialLaneCount)) {
+		std::string profileBlock;
+		if (!g_Config.sSocialHubDisplayName.empty()) {
+			profileBlock += g_Config.sSocialHubDisplayName;
+			profileBlock += "\n";
+		}
+		if (g_Config.iSocialHubFavoriteLane >= 0 && g_Config.iSocialHubFavoriteLane < kSocialLaneCount) {
+			profileBlock += "Favorite lane: ";
+			profileBlock += kSocialLanes[g_Config.iSocialHubFavoriteLane].name;
+			profileBlock += "\n";
+		}
+		if (!g_Config.sSocialHubStatusLine.empty()) {
+			profileBlock += g_Config.sSocialHubStatusLine;
+			profileBlock += "\n";
+		}
+		if (!g_Config.sSocialHubPinnedGames.empty()) {
+			profileBlock += "Pinned games: ";
+			profileBlock += g_Config.sSocialHubPinnedGames;
+		}
+		layout->Add(new TextView(profileBlock, ALIGN_LEFT, true,
+			new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, Margins(8, 0, 8, 4))));
+	}
+
+	LinearLayout *profileRow = new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, Margins(8, 0, 8, 8)));
+	profileRow->SetSpacing(8.0f);
+	profileRow->Add(new Choice(mm->T("Edit profile"), new LinearLayoutParams(WRAP_CONTENT, WRAP_CONTENT)))->OnClick.Add([this](UI::EventParams &) {
+		auto mm = GetI18NCategory(I18NCat::MAINMENU);
+		auto *namePopup = new TextEditPopupScreen(&g_Config.sSocialHubDisplayName, mm->T("Your display name"), mm->T("Display name"), 48);
+		namePopup->OnChange.Add([this, mm](UI::EventParams &) {
+			g_Config.Save("SocialHubProfileName");
+			auto *statusPopup = new TextEditPopupScreen(&g_Config.sSocialHubStatusLine, mm->T("e.g. Down for Tekken tonight"), mm->T("Status line"), 120);
+			statusPopup->OnChange.Add([this, mm](UI::EventParams &) {
+				g_Config.Save("SocialHubProfileStatus");
+				auto *pinnedPopup = new TextEditPopupScreen(&g_Config.sSocialHubPinnedGames, mm->T("Comma-separated game titles"), mm->T("Pinned games"), 200);
+				pinnedPopup->OnChange.Add([this](UI::EventParams &) {
+					g_Config.Save("SocialHubProfile");
+					RecreateViews();
+				});
+				screenManager()->push(pinnedPopup);
+			});
+			screenManager()->push(statusPopup);
+		});
+		screenManager()->push(namePopup);
+	});
+	profileRow->Add(new Choice(mm->T("Join Discord"), ImageID("I_LOGO_DISCORD"), new LinearLayoutParams(WRAP_CONTENT, WRAP_CONTENT)))->OnClick.Handle(this, &MainScreen::OnPPSSPPOrg);
+	layout->Add(profileRow);
 
 	// Lane cards
-	for (const auto &lane : kSocialLanes) {
-		layout->Add(new SocialLaneView(lane,
-			new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
+	for (int i = 0; i < kSocialLaneCount; i++) {
+		SocialLaneView *laneView = new SocialLaneView(kSocialLanes[i], i, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
+		laneView->OnClick.Add([this, i](UI::EventParams &e) {
+			(void)e;
+			g_Config.iSocialHubFavoriteLane = i;
+			g_Config.Save("SocialHubFavoriteLane");
+			RecreateViews();
+		});
+		layout->Add(laneView);
 	}
 
 	layout->Add(new Spacer(8.0f));
 
 	scroll->Add(layout);
 	tabHolder_->AddTab(mm->T("Hub"), ImageID::invalid(), scroll);
+}
+
+void MainScreen::PushSocialHubOnboarding() {
+	using namespace UI;
+	auto mm = GetI18NCategory(I18NCat::MAINMENU);
+	auto di = GetI18NCategory(I18NCat::DIALOG);
+
+	const std::string body = std::string(mm->T("The Hub tab lists multiplayer lanes and a simple local profile.")) + "\n" +
+		mm->T("Tap any lane card to star it as your favorite. Use Edit profile for display name, status, and pinned games.") + "\n" +
+		mm->T("Join Discord from the Hub or the side menu for events and rooms.");
+
+	auto *welcome = new MessagePopupScreen(mm->T("Welcome to OpenPSP"), body, di->T("OK"), "", [this](bool) {
+		g_Config.bSocialHubOnboardingComplete = true;
+		g_Config.Save("SocialHubOnboarding");
+		RecreateViews();
+	});
+	screenManager()->push(welcome);
 }
 
 void MainScreen::CreateRecentTab() {
@@ -1615,6 +1703,15 @@ void MainScreen::CreateViews() {
 		newRoot->Add(upgradeBar);
 		root_->ReplaceLayoutParams(new LinearLayoutParams(1.0));
 		root_ = newRoot;
+	}
+
+	if (g_Config.iSocialHubFavoriteLane >= kSocialLaneCount) {
+		g_Config.iSocialHubFavoriteLane = -1;
+	}
+
+	if (!g_Config.bSocialHubOnboardingComplete && !socialHubOnboardShownThisVisit_) {
+		socialHubOnboardShownThisVisit_ = true;
+		PushSocialHubOnboarding();
 	}
 }
 
