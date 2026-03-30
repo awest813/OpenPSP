@@ -560,6 +560,48 @@ void MainWindow::aboutAct()
 	aboutBox.exec();
 }
 
+void MainWindow::showMultiplayerRoomsAct()
+{
+	QMessageBox msgBox(this);
+	msgBox.setWindowTitle("Multiplayer Rooms");
+	msgBox.setIcon(QMessageBox::Information);
+	msgBox.setText("Multiplayer Rooms - Coming Soon!");
+	msgBox.setInformativeText("This feature will allow you to create and join multiplayer game rooms.\n\n"
+		"Planned features:\n"
+		"• Create private rooms with invite codes\n"
+		"• Browse public game rooms\n"
+		"• Filter by game and lane (Fight Club, Hunter Lodge, etc.)\n"
+		"• See who's currently playing");
+	msgBox.setStandardButtons(QMessageBox::Ok);
+	msgBox.exec();
+}
+
+void MainWindow::showGameBrowserAct()
+{
+	QMessageBox msgBox(this);
+	msgBox.setWindowTitle("Game Browser");
+	msgBox.setIcon(QMessageBox::Information);
+	msgBox.setText("Game Browser - Coming Soon!");
+	msgBox.setInformativeText("This feature will provide a visual game library.\n\n"
+		"Planned features:\n"
+		"• Grid view with game cover art\n"
+		"• Game metadata and ratings\n"
+		"• Multiplayer compatibility tags\n"
+		"• Quick launch from library");
+	msgBox.setStandardButtons(QMessageBox::Ok);
+	msgBox.exec();
+}
+
+void MainWindow::toggleDiscordRichPresenceAct()
+{
+	g_Config.bDiscordPresence = !g_Config.bDiscordPresence;
+	if (g_Config.bDiscordPresence) {
+		QMessageBox::information(this, "Discord Rich Presence", "Discord Rich Presence has been enabled.\n\nYour currently playing game will be shown in Discord.");
+	} else {
+		QMessageBox::information(this, "Discord Rich Presence", "Discord Rich Presence has been disabled.");
+	}
+}
+
 /* Private functions */
 void MainWindow::SetWindowScale(int zoom) {
 	if (isFullScreen())
@@ -788,6 +830,16 @@ void MainWindow::createMenus()
 		->SetEnabledFunc([=]() {
 			return g_Config.bEnableNetworkChat && GetUIState() == UISTATE_INGAME;
 		});
+
+	// Social Hub menu
+	MenuTree* socialMenu = new MenuTree(this, menuBar(), QT_TR_NOOP("&Social"));
+	socialMenu->add(new MenuAction(this, SLOT(toggleDiscordRichPresenceAct()), QT_TR_NOOP("Enable Discord &Rich Presence")))
+		->addEventChecked(&g_Config.bDiscordPresence);
+	socialMenu->addSeparator();
+	socialMenu->add(new MenuAction(this, SLOT(showGameBrowserAct()), QT_TR_NOOP("&Game Browser...")));
+	socialMenu->add(new MenuAction(this, SLOT(showMultiplayerRoomsAct()), QT_TR_NOOP("&Multiplayer Rooms...")));
+	socialMenu->addSeparator();
+	socialMenu->add(new MenuAction(this, SLOT(discordAct()), QT_TR_NOOP("Join &Discord Server")));
 
 	// Help
 	MenuTree* helpMenu = new MenuTree(this, menuBar(),    QT_TR_NOOP("&Help"));

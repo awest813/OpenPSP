@@ -190,6 +190,11 @@ private slots:
 		}
 	}
 
+	// Social Hub (placeholders for future implementation)
+	void showMultiplayerRoomsAct();
+	void showGameBrowserAct();
+	void toggleDiscordRichPresenceAct();
+
 	void fullscrAct();
 	void raiseTopMost();
 
