@@ -7,6 +7,10 @@
 #include <QFile>
 #include <QFileDialog>
 #include <QMessageBox>
+#include <QDragEnterEvent>
+#include <QDropEvent>
+#include <QMimeData>
+#include <QUrl>
 
 #include "mainwindow.h"
 
@@ -20,6 +24,7 @@
 #include "Core/SaveState.h"
 #include "Core/System.h"
 #include "Core/Screenshot.h"
+#include "Core/Util/RecentFiles.h"
 #include "GPU/GPUCommon.h"
 #include "UI/GamepadEmu.h"
 
@@ -46,6 +51,9 @@ MainWindow::MainWindow(QWidget *parent, bool fullscreen) :
 	updateMenus();
 
 	SetFullScreen(fullscreen);
+
+	// Enable drag and drop for ROM loading
+	setAcceptDrops(true);
 
 	QObject::connect(emugl, SIGNAL(doubleClick()), this, SLOT(fullscrAct()));
 	QObject::connect(emugl, SIGNAL(newFrame()), this, SLOT(newFrame()));
@@ -232,6 +240,65 @@ void MainWindow::exitAct()
 {
 	closeAct();
 	QApplication::exit(0);
+}
+
+void MainWindow::recentFileAct()
+{
+	QAction *action = qobject_cast<QAction *>(sender());
+	if (action) {
+		loadFileFromPath(action->data().toString());
+	}
+}
+
+void MainWindow::clearRecentFilesAct()
+{
+	g_recentFiles.Clear();
+	updateRecentFilesMenu();
+}
+
+void MainWindow::dragEnterEvent(QDragEnterEvent *event)
+{
+	if (event->mimeData()->hasUrls()) {
+		// Check if any of the dragged files are valid ROM files
+		const QList<QUrl> urls = event->mimeData()->urls();
+		for (const QUrl &url : urls) {
+			QString fileName = url.toLocalFile();
+			if (fileName.endsWith(".pbp", Qt::CaseInsensitive) ||
+			    fileName.endsWith(".elf", Qt::CaseInsensitive) ||
+			    fileName.endsWith(".iso", Qt::CaseInsensitive) ||
+			    fileName.endsWith(".cso", Qt::CaseInsensitive) ||
+			    fileName.endsWith(".chd", Qt::CaseInsensitive) ||
+			    fileName.endsWith(".prx", Qt::CaseInsensitive)) {
+				event->acceptProposedAction();
+				return;
+			}
+		}
+	}
+}
+
+void MainWindow::dropEvent(QDropEvent *event)
+{
+	const QMimeData *mimeData = event->mimeData();
+	if (mimeData->hasUrls()) {
+		QList<QUrl> urlList = mimeData->urls();
+		if (!urlList.isEmpty()) {
+			// Load the first valid ROM file
+			QString fileName = urlList.first().toLocalFile();
+			if (QFile::exists(fileName)) {
+				loadFileFromPath(fileName);
+				event->acceptProposedAction();
+			}
+		}
+	}
+}
+
+void MainWindow::loadFileFromPath(const QString &path)
+{
+	if (QFile::exists(path)) {
+		QFileInfo info(path);
+		g_Config.currentDirectory = Path(info.absolutePath().toStdString());
+		System_PostUIMessage(UIMessage::REQUEST_GAME_BOOT, path.toStdString());
+	}
 }
 
 void MainWindow::runAct()
@@ -530,6 +597,12 @@ void MainWindow::createMenus()
 	MenuTree* fileMenu = new MenuTree(this, menuBar(),    QT_TR_NOOP("&File"));
 	fileMenu->add(new MenuAction(this, SLOT(loadAct()),       QT_TR_NOOP("&Load..."), QKeySequence::Open))
 		->addEnableState(UISTATE_MENU);
+
+	// Recent Files submenu
+	recentFilesMenu = new QMenu(tr("Recent &Files"), this);
+	fileMenu->addMenu(recentFilesMenu);
+	updateRecentFilesMenu();
+
 	fileMenu->addSeparator();
 	fileMenu->add(new MenuAction(this, SLOT(openmsAct()),       QT_TR_NOOP("Open &Memory Stick")))
 		->addEnableState(UISTATE_MENU);
@@ -687,4 +760,49 @@ void MainWindow::createMenus()
 	helpMenu->add(new MenuAction(this, SLOT(aboutAct()),      QT_TR_NOOP("&About PPSSPP...")));
 
 	retranslate();
+}
+
+void MainWindow::updateRecentFilesMenu()
+{
+	// Clear existing actions
+	for (QAction *action : recentFileActions) {
+		recentFilesMenu->removeAction(action);
+		delete action;
+	}
+	recentFileActions.clear();
+
+	// Get recent files from the manager
+	std::vector<std::string> recentFiles = g_recentFiles.GetRecentFiles();
+
+	if (recentFiles.empty()) {
+		QAction *noRecentAction = new QAction(tr("No recent files"), this);
+		noRecentAction->setEnabled(false);
+		recentFilesMenu->addAction(noRecentAction);
+		recentFileActions.push_back(noRecentAction);
+	} else {
+		// Add recent files (limit to 10)
+		int count = 0;
+		for (const std::string &file : recentFiles) {
+			if (count >= 10) break;
+
+			QString qFile = QString::fromStdString(file);
+			QFileInfo fileInfo(qFile);
+			QString displayName = fileInfo.fileName();
+
+			QAction *recentAction = new QAction(QString("%1. %2").arg(count + 1).arg(displayName), this);
+			recentAction->setData(qFile);
+			recentAction->setStatusTip(qFile);
+			connect(recentAction, SIGNAL(triggered()), this, SLOT(recentFileAct()));
+			recentFilesMenu->addAction(recentAction);
+			recentFileActions.push_back(recentAction);
+			count++;
+		}
+
+		// Add separator and clear action
+		recentFilesMenu->addSeparator();
+		QAction *clearAction = new QAction(tr("Clear Recent Files"), this);
+		connect(clearAction, SIGNAL(triggered()), this, SLOT(clearRecentFilesAct()));
+		recentFilesMenu->addAction(clearAction);
+		recentFileActions.push_back(clearAction);
+	}
 }

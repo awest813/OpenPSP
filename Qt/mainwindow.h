@@ -71,6 +71,10 @@ protected:
 
 	void closeEvent(QCloseEvent *) { exitAct(); }
 
+	// Drag and drop support for ROM loading
+	void dragEnterEvent(QDragEnterEvent *event);
+	void dropEvent(QDropEvent *event);
+
 signals:
 	void retranslate();
 	void updateMenu();
@@ -92,6 +96,8 @@ private slots:
 	void useLosslessVideoCodecAct();
 	void useOutputBufferAct();
 	void recordAudioAct();
+	void recentFileAct();
+	void clearRecentFilesAct();
 	void exitAct();
 
 	// Emulation
@@ -202,6 +208,8 @@ private:
 	void SetFullScreen(bool fullscreen);
 	void loadLanguage(const QString &language, bool retranslate);
 	void createMenus();
+	void updateRecentFilesMenu();
+	void loadFileFromPath(const QString &path);
 
 	QTranslator translator;
 	QString currentLanguage;
@@ -214,6 +222,9 @@ private:
 	             *screenScalingFilterGroup, *textureFilteringGroup,
 	             *frameSkippingGroup, *renderingResolutionGroup,
 	             *displayRotationGroup, *saveStateGroup;
+
+	QMenu *recentFilesMenu;
+	std::vector<QAction *> recentFileActions;
 
 	std::queue<MainWindowMsg> msgQueue_;
 	std::mutex msgMutex_;
