@@ -594,8 +594,8 @@ void MainWindow::showGameBrowserAct()
 
 void MainWindow::toggleDiscordRichPresenceAct()
 {
-	g_Config.bDiscordPresence = !g_Config.bDiscordPresence;
-	if (g_Config.bDiscordPresence) {
+	g_Config.bDiscordRichPresence = !g_Config.bDiscordRichPresence;
+	if (g_Config.bDiscordRichPresence) {
 		QMessageBox::information(this, "Discord Rich Presence", "Discord Rich Presence has been enabled.\n\nYour currently playing game will be shown in Discord.");
 	} else {
 		QMessageBox::information(this, "Discord Rich Presence", "Discord Rich Presence has been disabled.");
@@ -834,7 +834,7 @@ void MainWindow::createMenus()
 	// Social Hub menu
 	MenuTree* socialMenu = new MenuTree(this, menuBar(), QT_TR_NOOP("&Social"));
 	socialMenu->add(new MenuAction(this, SLOT(toggleDiscordRichPresenceAct()), QT_TR_NOOP("Enable Discord &Rich Presence")))
-		->addEventChecked(&g_Config.bDiscordPresence);
+		->addEventChecked(&g_Config.bDiscordRichPresence);
 	socialMenu->addSeparator();
 	socialMenu->add(new MenuAction(this, SLOT(showGameBrowserAct()), QT_TR_NOOP("&Game Browser...")));
 	socialMenu->add(new MenuAction(this, SLOT(showMultiplayerRoomsAct()), QT_TR_NOOP("&Multiplayer Rooms...")));
