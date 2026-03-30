@@ -532,17 +532,32 @@ void MainWindow::discordAct()
 
 void MainWindow::aboutAct()
 {
-	QMessageBox::about(this, "About", QString("PPSSPP Qt %1\n\n"
-	                                                    "PSP emulator and debugger\n\n"
-	                                                    "Copyright (c) by Henrik Rydg\xc3\xa5rd and the PPSSPP Project 2012-\n"
-	                                                    "Qt port maintained by xSacha\n\n"
-	                                                    "Additional credits:\n"
-	                                                    "    PSPSDK by #pspdev (freenode)\n"
-	                                                    "    CISO decompression code by BOOSTER\n"
-	                                                    "    zlib by Jean-loup Gailly (compression) and Mark Adler (decompression)\n"
-	                                                    "    Qt project by Digia\n\n"
-	                                                    "All trademarks are property of their respective owners.\n"
-	                                                    "The emulator is for educational and development purposes only and it may not be used to play games you do not legally own.").arg(PPSSPP_GIT_VERSION));
+	QMessageBox aboutBox(this);
+	aboutBox.setWindowTitle("About OpenPSP");
+	aboutBox.setTextFormat(Qt::RichText);
+	aboutBox.setText(QString(
+		"<h2>OpenPSP %1</h2>"
+		"<p><b>PSP Emulator with Social Features</b></p>"
+		"<p>A fork of PPSSPP focused on multiplayer and social gaming</p>"
+		"<hr>"
+		"<p><b>Based on PPSSPP</b><br>"
+		"Copyright © Henrik Rydgård and the PPSSPP Project 2012-2025<br>"
+		"Qt port maintained by xSacha</p>"
+		"<hr>"
+		"<p><b>Additional credits:</b><br>"
+		"• PSPSDK by #pspdev (freenode)<br>"
+		"• CISO decompression code by BOOSTER<br>"
+		"• zlib by Jean-loup Gailly and Mark Adler<br>"
+		"• Qt project by The Qt Company</p>"
+		"<hr>"
+		"<p style='font-size: small;'>"
+		"All trademarks are property of their respective owners.<br>"
+		"This emulator is for educational purposes only.<br>"
+		"You must own the games you play."
+		"</p>"
+	).arg(PPSSPP_GIT_VERSION));
+	aboutBox.setStandardButtons(QMessageBox::Ok);
+	aboutBox.exec();
 }
 
 /* Private functions */
