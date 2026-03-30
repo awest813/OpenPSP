@@ -591,10 +591,14 @@ struct SocialLaneInfo {
 };
 
 static const SocialLaneInfo kSocialLanes[] = {
-	{ "Fight Club",      "Competitive 1-on-1",   "Tekken 6 \xC2\xB7 Dissidia 012 \xC2\xB7 Darkstalkers Chronicle \xC2\xB7 Power Stone Collection", 0xFF2244CC },
-	{ "Hunter Lodge",    "Co-op progression",    "Monster Hunter Freedom Unite \xC2\xB7 Phantasy Star Portable 2",                                   0xFF226622 },
-	{ "Shooter Block",  "Tactical multiplayer",  "SOCOM Fireteam Bravo \xC2\xB7 Resistance: Retribution \xC2\xB7 Coded Arms",                        0xFF883311 },
-	{ "Weird UMD Zone", "Party & oddball picks", "Half-Minute Hero \xC2\xB7 Work Time Fun \xC2\xB7 Fat Princess \xC2\xB7 Power Stone Collection",    0xFF664488 },
+	{ "Fight Club",      "Competitive 1-on-1",    "Tekken 6 \xC2\xB7 Dissidia 012 \xC2\xB7 Darkstalkers Chronicle \xC2\xB7 Power Stone Collection", 0xFF2244CC },
+	{ "Hunter Lodge",    "Co-op progression",     "Monster Hunter Freedom Unite \xC2\xB7 Phantasy Star Portable 2",                                   0xFF226622 },
+	{ "Shooter Block",   "Tactical multiplayer",  "SOCOM Fireteam Bravo \xC2\xB7 Resistance: Retribution \xC2\xB7 Coded Arms",                        0xFF883311 },
+	{ "Weird UMD Zone",  "Party & oddball picks", "Half-Minute Hero \xC2\xB7 Work Time Fun \xC2\xB7 Fat Princess \xC2\xB7 Power Stone Collection",    0xFF664488 },
+	{ "Raceway",         "Arcade & sim racing",   "Burnout Dominator \xC2\xB7 Wipeout Pulse \xC2\xB7 Ridge Racer \xC2\xB7 Need for Speed Most Wanted 5-1-0", 0xFFCCAA22 },
+	{ "Court & Field",   "Sports pick-up games",  "NBA Street Showdown \xC2\xB7 FIFA 14 \xC2\xB7 Madden NFL 12 \xC2\xB7 Hot Shots Golf: Open Tee 2", 0xFF1188AA },
+	{ "RPG Guild",       "Co-op quests & loot",   "Lord of Arcana \xC2\xB7 Untold Legends: Brotherhood of the Blade \xC2\xB7 Valhalla Knights",       0xFF8844AA },
+	{ "Strike Ops",      "Tactical co-op",        "Metal Gear Solid: Peace Walker \xC2\xB7 Killzone: Liberation \xC2\xB7 Tom Clancy's Ghost Recon Predator", 0xFF446688 },
 };
 
 class SocialLaneView : public UI::Clickable {
