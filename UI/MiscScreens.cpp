@@ -454,7 +454,7 @@ void LogoScreen::DrawForeground(UIContext &dc) {
 	dc.DrawText(temp, bounds.centerX(), startY + 70, textColor, ALIGN_CENTER);
 	dc.DrawText(cr->T_cstr("license", "Free Software under GPL 2.0+"), bounds.centerX(), startY + 110, textColor, ALIGN_CENTER);
 
-	dc.DrawText("www.ppsspp.org", bounds.centerX(), startY + 160, textColor, ALIGN_CENTER);
+	dc.DrawText("OpenPSP \xE2\x80\x94 discord.gg/5NJB6dD", bounds.centerX(), startY + 160, textColor, ALIGN_CENTER);
 
 #if !PPSSPP_PLATFORM(UWP) || defined(_DEBUG)
 	// Draw the graphics API, except on UWP where it's always D3D11
@@ -500,7 +500,7 @@ private:
 
 std::string_view CreditsScreen::GetTitle() const {
 	auto mm = GetI18NCategory(I18NCat::MAINMENU);
-	return mm->T("About PPSSPP");
+	return mm->T("About OpenPSP");
 }
 
 void CreditsScreen::CreateDialogViews(UI::ViewGroup *parent) {
@@ -546,23 +546,11 @@ void CreditsScreen::CreateDialogViews(UI::ViewGroup *parent) {
 	}
 
 	int rightYOffset = 0;
-	if (!System_GetPropertyBool(SYSPROP_APP_GOLD)) {
-		ScreenManager *sm = screenManager();
-		Choice *gold = new Choice(mm->T("Buy PPSSPP Gold"));
-		gold->SetIconRight(ImageID("I_ICON_GOLD"), 0.5f);
-		gold->SetImageScale(0.6f);  // for the left-icon in case of vertical.
-		gold->SetShine(true);
-
-		left->Add(gold)->OnClick.Add([sm](UI::EventParams) {
-			LaunchBuyGold(sm);
-		});
-		rightYOffset = 74;
-	}
+	left->Add(new Choice(cr->T("OpenPSP Discord"), ImageID("I_LOGO_DISCORD")))->OnClick.Add([](UI::EventParams &e) {
+		System_LaunchUrl(LaunchUrlType::BROWSER_URL, "https://discord.gg/5NJB6dD");
+	});
 	left->Add(new Choice(cr->T("PPSSPP Forums"), ImageID("I_LINK_OUT")))->OnClick.Add([](UI::EventParams &e) {
 		System_LaunchUrl(LaunchUrlType::BROWSER_URL, "https://forums.ppsspp.org");
-	});
-	left->Add(new Choice(cr->T("Discord"), ImageID("I_LOGO_DISCORD")))->OnClick.Add([](UI::EventParams &e) {
-		System_LaunchUrl(LaunchUrlType::BROWSER_URL, "https://discord.gg/5NJB6dD");
 	});
 	left->Add(new Choice("www.ppsspp.org", ImageID("I_LINK_OUT")))->OnClick.Add([](UI::EventParams &e) {
 		System_LaunchUrl(LaunchUrlType::BROWSER_URL, "https://www.ppsspp.org");
@@ -570,14 +558,11 @@ void CreditsScreen::CreateDialogViews(UI::ViewGroup *parent) {
 	right->Add(new Choice(cr->T("Privacy Policy"), ImageID("I_LINK_OUT")))->OnClick.Add([](UI::EventParams &e) {
 		System_LaunchUrl(LaunchUrlType::BROWSER_URL, "https://www.ppsspp.org/privacy");
 	});
-	right->Add(new Choice(cr->T("@PPSSPP_emu"), ImageID("I_LOGO_X")))->OnClick.Add([](UI::EventParams &e) {
-		System_LaunchUrl(LaunchUrlType::BROWSER_URL, "https://x.com/PPSSPP_emu");
-	});
 
 	if (System_GetPropertyBool(SYSPROP_SUPPORTS_SHARE_TEXT)) {
-		right->Add(new Choice(cr->T("Share PPSSPP"), ImageID("I_SHARE")))->OnClick.Add([](UI::EventParams &e) {
+		right->Add(new Choice(cr->T("Share OpenPSP"), ImageID("I_SHARE")))->OnClick.Add([](UI::EventParams &e) {
 			auto cr = GetI18NCategory(I18NCat::PSPCREDITS);
-			System_ShareText(cr->T("CheckOutPPSSPP", "Check out PPSSPP, the awesome PSP emulator: https://www.ppsspp.org/"));
+			System_ShareText(cr->T("CheckOutOpenPSP", "Check out OpenPSP, the social PSP multiplayer hub: https://discord.gg/5NJB6dD"));
 		});
 	}
 }
@@ -717,16 +702,16 @@ void CreditsScroller::Draw(UIContext &dc) {
 		"PSP SDK",
 		"",
 		"",
-		cr->T("website", "Check out the website:"),
-		"www.ppsspp.org",
-		cr->T("list", "compatibility lists, forums, and development info"),
+		cr->T("website", "Join the OpenPSP community:"),
+		"discord.gg/5NJB6dD",
+		cr->T("list", "rooms, game nights, and multiplayer support"),
 		"",
 		"",
 		cr->T("check", "Also check out Dolphin, the best Wii/GC emu around:"),
 		"https://www.dolphin-emu.org",
 		"",
 		"",
-		cr->T("info1", "PPSSPP is only intended to play games you own."),
+		cr->T("info1", "OpenPSP is only intended to play games you own."),
 		cr->T("info2", "Please make sure that you own the rights to any games"),
 		cr->T("info3", "you play by owning the UMD or by buying the digital"),
 		cr->T("info4", "download from the PSN store on your real PSP."),
@@ -738,9 +723,9 @@ void CreditsScroller::Draw(UIContext &dc) {
 	// TODO: This is kinda ugly, done on every frame...
 	char temp[256];
 	if (System_GetPropertyBool(SYSPROP_APP_GOLD)) {
-		snprintf(temp, sizeof(temp), "PPSSPP Gold %s", PPSSPP_GIT_VERSION);
+		snprintf(temp, sizeof(temp), "OpenPSP Gold %s", PPSSPP_GIT_VERSION);
 	} else {
-		snprintf(temp, sizeof(temp), "PPSSPP %s", PPSSPP_GIT_VERSION);
+		snprintf(temp, sizeof(temp), "OpenPSP %s", PPSSPP_GIT_VERSION);
 	}
 	credits[0] = (const char *)temp;
 
