@@ -7,6 +7,11 @@
 #include <QFile>
 #include <QFileDialog>
 #include <QMessageBox>
+#include <QDragEnterEvent>
+#include <QDropEvent>
+#include <QMoveEvent>
+#include <QMimeData>
+#include <QUrl>
 
 #include "mainwindow.h"
 
@@ -20,6 +25,7 @@
 #include "Core/SaveState.h"
 #include "Core/System.h"
 #include "Core/Screenshot.h"
+#include "Core/Util/RecentFiles.h"
 #include "GPU/GPUCommon.h"
 #include "UI/GamepadEmu.h"
 
@@ -46,6 +52,14 @@ MainWindow::MainWindow(QWidget *parent, bool fullscreen) :
 	updateMenus();
 
 	SetFullScreen(fullscreen);
+
+	// Enable drag and drop for ROM loading
+	setAcceptDrops(true);
+
+	// Restore window position if saved
+	if (g_Config.iWindowX >= 0 && g_Config.iWindowY >= 0) {
+		move(g_Config.iWindowX, g_Config.iWindowY);
+	}
 
 	QObject::connect(emugl, SIGNAL(doubleClick()), this, SLOT(fullscrAct()));
 	QObject::connect(emugl, SIGNAL(newFrame()), this, SLOT(newFrame()));
@@ -155,14 +169,21 @@ void MainWindow::openmsAct()
 
 static void SaveStateActionFinished(SaveState::Status status, std::string_view message)
 {
-	// TODO: Improve messaging?
 	if (status == SaveState::Status::FAILURE)
 	{
 		QMessageBox msgBox;
-		msgBox.setWindowTitle("Load Save State");
-		msgBox.setText("Savestate failure. Please try again later");
+		msgBox.setIcon(QMessageBox::Warning);
+		msgBox.setWindowTitle("Save State Error");
+		msgBox.setText("Failed to complete save state operation");
+		QString detailText = QString::fromUtf8(message.data(), message.size());
+		if (!detailText.isEmpty()) {
+			msgBox.setInformativeText(detailText);
+		}
+		msgBox.setStandardButtons(QMessageBox::Ok);
 		msgBox.exec();
-		return;
+	} else if (status == SaveState::Status::SUCCESS) {
+		// Show a brief success notification (optional)
+		// For now, silent success is fine
 	}
 }
 
@@ -232,6 +253,77 @@ void MainWindow::exitAct()
 {
 	closeAct();
 	QApplication::exit(0);
+}
+
+void MainWindow::recentFileAct()
+{
+	QAction *action = qobject_cast<QAction *>(sender());
+	if (action) {
+		loadFileFromPath(action->data().toString());
+	}
+}
+
+void MainWindow::clearRecentFilesAct()
+{
+	g_recentFiles.Clear();
+	updateRecentFilesMenu();
+}
+
+void MainWindow::dragEnterEvent(QDragEnterEvent *event)
+{
+	if (event->mimeData()->hasUrls()) {
+		// Check if any of the dragged files are valid ROM files
+		const QList<QUrl> urls = event->mimeData()->urls();
+		for (const QUrl &url : urls) {
+			QString fileName = url.toLocalFile();
+			if (fileName.endsWith(".pbp", Qt::CaseInsensitive) ||
+			    fileName.endsWith(".elf", Qt::CaseInsensitive) ||
+			    fileName.endsWith(".iso", Qt::CaseInsensitive) ||
+			    fileName.endsWith(".cso", Qt::CaseInsensitive) ||
+			    fileName.endsWith(".chd", Qt::CaseInsensitive) ||
+			    fileName.endsWith(".prx", Qt::CaseInsensitive)) {
+				event->acceptProposedAction();
+				return;
+			}
+		}
+	}
+}
+
+void MainWindow::dropEvent(QDropEvent *event)
+{
+	const QMimeData *mimeData = event->mimeData();
+	if (mimeData->hasUrls()) {
+		QList<QUrl> urlList = mimeData->urls();
+		if (!urlList.isEmpty()) {
+			// Load the first valid ROM file
+			QString fileName = urlList.first().toLocalFile();
+			if (QFile::exists(fileName)) {
+				loadFileFromPath(fileName);
+				event->acceptProposedAction();
+			}
+		}
+	}
+}
+
+void MainWindow::loadFileFromPath(const QString &path)
+{
+	if (QFile::exists(path)) {
+		QFileInfo info(path);
+		g_Config.currentDirectory = Path(info.absolutePath().toStdString());
+		System_PostUIMessage(UIMessage::REQUEST_GAME_BOOT, path.toStdString());
+	}
+}
+
+void MainWindow::moveEvent(QMoveEvent *event)
+{
+	QMainWindow::moveEvent(event);
+
+	// Don't save position when fullscreen or minimized
+	if (!isFullScreen() && !isMinimized()) {
+		QPoint pos = event->pos();
+		g_Config.iWindowX = pos.x();
+		g_Config.iWindowY = pos.y();
+	}
 }
 
 void MainWindow::runAct()
@@ -440,17 +532,74 @@ void MainWindow::discordAct()
 
 void MainWindow::aboutAct()
 {
-	QMessageBox::about(this, "About", QString("PPSSPP Qt %1\n\n"
-	                                                    "PSP emulator and debugger\n\n"
-	                                                    "Copyright (c) by Henrik Rydg\xc3\xa5rd and the PPSSPP Project 2012-\n"
-	                                                    "Qt port maintained by xSacha\n\n"
-	                                                    "Additional credits:\n"
-	                                                    "    PSPSDK by #pspdev (freenode)\n"
-	                                                    "    CISO decompression code by BOOSTER\n"
-	                                                    "    zlib by Jean-loup Gailly (compression) and Mark Adler (decompression)\n"
-	                                                    "    Qt project by Digia\n\n"
-	                                                    "All trademarks are property of their respective owners.\n"
-	                                                    "The emulator is for educational and development purposes only and it may not be used to play games you do not legally own.").arg(PPSSPP_GIT_VERSION));
+	QMessageBox aboutBox(this);
+	aboutBox.setWindowTitle("About OpenPSP");
+	aboutBox.setTextFormat(Qt::RichText);
+	aboutBox.setText(QString(
+		"<h2>OpenPSP %1</h2>"
+		"<p><b>PSP Emulator with Social Features</b></p>"
+		"<p>A fork of PPSSPP focused on multiplayer and social gaming</p>"
+		"<hr>"
+		"<p><b>Based on PPSSPP</b><br>"
+		"Copyright © Henrik Rydgård and the PPSSPP Project 2012-2025<br>"
+		"Qt port maintained by xSacha</p>"
+		"<hr>"
+		"<p><b>Additional credits:</b><br>"
+		"• PSPSDK by #pspdev (freenode)<br>"
+		"• CISO decompression code by BOOSTER<br>"
+		"• zlib by Jean-loup Gailly and Mark Adler<br>"
+		"• Qt project by The Qt Company</p>"
+		"<hr>"
+		"<p style='font-size: small;'>"
+		"All trademarks are property of their respective owners.<br>"
+		"This emulator is for educational purposes only.<br>"
+		"You must own the games you play."
+		"</p>"
+	).arg(PPSSPP_GIT_VERSION));
+	aboutBox.setStandardButtons(QMessageBox::Ok);
+	aboutBox.exec();
+}
+
+void MainWindow::showMultiplayerRoomsAct()
+{
+	QMessageBox msgBox(this);
+	msgBox.setWindowTitle("Multiplayer Rooms");
+	msgBox.setIcon(QMessageBox::Information);
+	msgBox.setText("Multiplayer Rooms - Coming Soon!");
+	msgBox.setInformativeText("This feature will allow you to create and join multiplayer game rooms.\n\n"
+		"Planned features:\n"
+		"• Create private rooms with invite codes\n"
+		"• Browse public game rooms\n"
+		"• Filter by game and lane (Fight Club, Hunter Lodge, etc.)\n"
+		"• See who's currently playing");
+	msgBox.setStandardButtons(QMessageBox::Ok);
+	msgBox.exec();
+}
+
+void MainWindow::showGameBrowserAct()
+{
+	QMessageBox msgBox(this);
+	msgBox.setWindowTitle("Game Browser");
+	msgBox.setIcon(QMessageBox::Information);
+	msgBox.setText("Game Browser - Coming Soon!");
+	msgBox.setInformativeText("This feature will provide a visual game library.\n\n"
+		"Planned features:\n"
+		"• Grid view with game cover art\n"
+		"• Game metadata and ratings\n"
+		"• Multiplayer compatibility tags\n"
+		"• Quick launch from library");
+	msgBox.setStandardButtons(QMessageBox::Ok);
+	msgBox.exec();
+}
+
+void MainWindow::toggleDiscordRichPresenceAct()
+{
+	g_Config.bDiscordPresence = !g_Config.bDiscordPresence;
+	if (g_Config.bDiscordPresence) {
+		QMessageBox::information(this, "Discord Rich Presence", "Discord Rich Presence has been enabled.\n\nYour currently playing game will be shown in Discord.");
+	} else {
+		QMessageBox::information(this, "Discord Rich Presence", "Discord Rich Presence has been disabled.");
+	}
 }
 
 /* Private functions */
@@ -530,6 +679,12 @@ void MainWindow::createMenus()
 	MenuTree* fileMenu = new MenuTree(this, menuBar(),    QT_TR_NOOP("&File"));
 	fileMenu->add(new MenuAction(this, SLOT(loadAct()),       QT_TR_NOOP("&Load..."), QKeySequence::Open))
 		->addEnableState(UISTATE_MENU);
+
+	// Recent Files submenu
+	recentFilesMenu = new QMenu(tr("Recent &Files"), this);
+	fileMenu->addMenu(recentFilesMenu);
+	updateRecentFilesMenu();
+
 	fileMenu->addSeparator();
 	fileMenu->add(new MenuAction(this, SLOT(openmsAct()),       QT_TR_NOOP("Open &Memory Stick")))
 		->addEnableState(UISTATE_MENU);
@@ -676,6 +831,16 @@ void MainWindow::createMenus()
 			return g_Config.bEnableNetworkChat && GetUIState() == UISTATE_INGAME;
 		});
 
+	// Social Hub menu
+	MenuTree* socialMenu = new MenuTree(this, menuBar(), QT_TR_NOOP("&Social"));
+	socialMenu->add(new MenuAction(this, SLOT(toggleDiscordRichPresenceAct()), QT_TR_NOOP("Enable Discord &Rich Presence")))
+		->addEventChecked(&g_Config.bDiscordPresence);
+	socialMenu->addSeparator();
+	socialMenu->add(new MenuAction(this, SLOT(showGameBrowserAct()), QT_TR_NOOP("&Game Browser...")));
+	socialMenu->add(new MenuAction(this, SLOT(showMultiplayerRoomsAct()), QT_TR_NOOP("&Multiplayer Rooms...")));
+	socialMenu->addSeparator();
+	socialMenu->add(new MenuAction(this, SLOT(discordAct()), QT_TR_NOOP("Join &Discord Server")));
+
 	// Help
 	MenuTree* helpMenu = new MenuTree(this, menuBar(),    QT_TR_NOOP("&Help"));
 	helpMenu->add(new MenuAction(this, SLOT(websiteAct()),    QT_TR_NOOP("Visit www.&ppsspp.org")));
@@ -687,4 +852,49 @@ void MainWindow::createMenus()
 	helpMenu->add(new MenuAction(this, SLOT(aboutAct()),      QT_TR_NOOP("&About PPSSPP...")));
 
 	retranslate();
+}
+
+void MainWindow::updateRecentFilesMenu()
+{
+	// Clear existing actions
+	for (QAction *action : recentFileActions) {
+		recentFilesMenu->removeAction(action);
+		delete action;
+	}
+	recentFileActions.clear();
+
+	// Get recent files from the manager
+	std::vector<std::string> recentFiles = g_recentFiles.GetRecentFiles();
+
+	if (recentFiles.empty()) {
+		QAction *noRecentAction = new QAction(tr("No recent files"), this);
+		noRecentAction->setEnabled(false);
+		recentFilesMenu->addAction(noRecentAction);
+		recentFileActions.push_back(noRecentAction);
+	} else {
+		// Add recent files (limit to 10)
+		int count = 0;
+		for (const std::string &file : recentFiles) {
+			if (count >= 10) break;
+
+			QString qFile = QString::fromStdString(file);
+			QFileInfo fileInfo(qFile);
+			QString displayName = fileInfo.fileName();
+
+			QAction *recentAction = new QAction(QString("%1. %2").arg(count + 1).arg(displayName), this);
+			recentAction->setData(qFile);
+			recentAction->setStatusTip(qFile);
+			connect(recentAction, SIGNAL(triggered()), this, SLOT(recentFileAct()));
+			recentFilesMenu->addAction(recentAction);
+			recentFileActions.push_back(recentAction);
+			count++;
+		}
+
+		// Add separator and clear action
+		recentFilesMenu->addSeparator();
+		QAction *clearAction = new QAction(tr("Clear Recent Files"), this);
+		connect(clearAction, SIGNAL(triggered()), this, SLOT(clearRecentFilesAct()));
+		recentFilesMenu->addAction(clearAction);
+		recentFileActions.push_back(clearAction);
+	}
 }

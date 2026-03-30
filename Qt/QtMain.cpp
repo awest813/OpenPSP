@@ -837,6 +837,12 @@ int main(int argc, char *argv[])
 	QApplication::setAttribute(Qt::AA_X11InitThreads, true);
 #endif
 
+#if QT_VERSION >= QT_VERSION_CHECK(5, 6, 0)
+	// Enable high-DPI support for better rendering on modern displays
+	QApplication::setAttribute(Qt::AA_EnableHighDpiScaling);
+	QApplication::setAttribute(Qt::AA_UseHighDpiPixmaps);
+#endif
+
 	// Qt would otherwise default to a 3.0 compatibility profile
 	// except on Nvidia, where Nvidia gives us the highest supported anyway
 	QGLFormat format;
