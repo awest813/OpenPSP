@@ -111,6 +111,40 @@ Treat these as the **v1 supported list** for compatibility buckets, copy, and QA
 
 ---
 
+## Phase 2 roadmap — next milestone (concrete)
+
+Phase 1 proves the loop with a closed circle of friends. Phase 2 opens the door slightly: **small public onboarding**, **curated game pages**, a **real landing experience**, and **simple profiles** — still curated, not a free-for-all catalog.
+
+### Client / fork
+
+- First-run and “returning player” onboarding: lane picker, where to find events, how rooms and invites work, link-out to Discord.  
+- **Game pages** for the v1 supported list: lane tags, netplay notes (ports, typical issues), recommended PPSSPP settings presets where they help, and “best for” copy (Fight Night vs hunt vs party).  
+- **Simple profiles**: display name, optional avatar, favorite lane(s), 2–3 pinned games, short status line (“down for Tekken tonight”). No heavy social graph yet.  
+- Discovery polish: filter rooms by lane and game; highlight “tonight’s featured” from ops without hard-coding only four titles forever.
+
+### Discord
+
+- Onboarding posts pinned per lane + a single **#start-here** with rules, client link, and schedule.  
+- Light moderation kit: what to post in LFG vs lane channels, spam/report flow, volunteer mod expectations for a small public wave.  
+- Optional bot or workflow: event RSVP or reaction counts so hosts know headcount (keep it simple).
+
+### Landing / copy
+
+- **Polished landing**: hero, three pillars recap, anchor games strip, Discord CTA, download CTA, this week’s schedule embed or static block.  
+- Small **FAQ**: dumps/ROM ethics, “is this official PPSSPP,” supported platforms, netplay troubleshooting link to the one-pager from Phase 1.  
+- Basic SEO and share cards (title/description/image) so links look credible in Discord and social.
+
+### Ops / culture
+
+- Run **two** recurring slots if volume allows (e.g. fight + hunt), or one anchor night + rotating genre — still small, still curated.  
+- Publish a short **public code of conduct** (inclusive, no harassment, respect hosts).  
+- Gather structured feedback: one form or thread template for “game X disconnect pattern” to feed fork fixes.
+
+**Exit criteria (Phase 2)**  
+Anyone new can land on the site, install the client, join Discord, find a game page and a room or event within one session — without DMs to a founder.
+
+---
+
 ## Launch strategy (phases)
 
 | Phase | Focus |
