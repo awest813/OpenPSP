@@ -35,10 +35,12 @@ class Path;
 // per game.
 class GameSettingsScreen : public UITabbedBaseDialogScreen {
 public:
-	GameSettingsScreen(const Path &gamePath, std::string gameID = "", bool editThenRestore = false);
+	GameSettingsScreen(const Path &gamePath, std::string gameID = "", bool editThenRestore = false, bool openNetworkingTab = false);
 	~GameSettingsScreen();
 
 	const char *tag() const override { return "GameSettings"; }
+
+	void CreateViews() override;
 
 protected:
 	void CallbackRestoreDefaults(bool yes);
@@ -60,6 +62,7 @@ private:
 	void CreateVRSettings(UI::ViewGroup *vrSettings);
 
 	std::string gameID_;
+	bool openNetworkingTab_ = false;
 #ifdef _WIN32
 	UI::CheckBox *SavePathInMyDocumentChoice = nullptr;
 	UI::CheckBox *SavePathInOtherChoice = nullptr;

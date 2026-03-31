@@ -10,6 +10,10 @@
 #include "Core/Config.h"  // for AdhocServerListEntry!
 #include "Common/UI/Notice.h"
 
+namespace UI {
+class PopupTextInputChoice;
+}
+
 class AdhocServerScreen : public UI::PopupScreen {
 public:
 	AdhocServerScreen(std::string *value, std::string_view title);
@@ -38,6 +42,7 @@ private:
 	std::string editValue_;
 	std::vector<AdhocServerListEntry> listItems_;
 	NoticeView *progressView_ = nullptr;
+	UI::PopupTextInputChoice *hostnameChoice_ = nullptr;
 
 	std::thread resolver_;
 	ResolverState resolverState_ = ResolverState::WAITING;

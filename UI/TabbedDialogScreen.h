@@ -52,6 +52,8 @@ protected:
 
 	int GetCurrentTab() const;
 	void SetCurrentTab(int tab);
+	// Switches to the first tab whose root content view Tag() equals `tag` (e.g. "GameSettingsNetworking").
+	bool SwitchToTabByContentTag(std::string_view tag);
 
 	void sendMessage(UIMessage message, const char *value) override;
 
