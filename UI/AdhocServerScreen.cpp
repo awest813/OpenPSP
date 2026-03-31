@@ -89,7 +89,6 @@ void AdhocServerScreen::CreatePopupContents(UI::ViewGroup *parent) {
 	ScrollView *scrollView = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(1.0f));
 	LinearLayout *innerView = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
 	innerView->SetSpacing(5.0f);
-	auto di = GetI18NCategory(I18NCat::DIALOG);
 	for (const auto &row : rows) {
 		auto *rowLayout = innerView->Add(new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
 		rowLayout->SetSpacing(6.0f);
