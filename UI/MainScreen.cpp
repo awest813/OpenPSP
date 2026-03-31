@@ -584,23 +584,23 @@ void DirButton::Draw(UIContext &dc) {
 	DrawIconWithText(dc, image, text, bounds_, gridStyle_, style);
 }
 
-// Social hub lane card — one card per multiplayer lane.
+// Social hub lane card — one card per multiplayer lane (strings from [MainMenu] in lang inis).
 struct SocialLaneInfo {
-	const char *name;
-	const char *subtitle;
-	const char *games;
+	const char *nameKey;
+	const char *subtitleKey;
+	const char *gamesKey;
 	uint32_t accentColor;
 };
 
 static const SocialLaneInfo kSocialLanes[] = {
-	{ "Fight Club",      "Competitive 1-on-1",    "Tekken 6 \xC2\xB7 Dissidia 012 \xC2\xB7 Darkstalkers Chronicle \xC2\xB7 Power Stone Collection", 0xFF2244CC },
-	{ "Hunter Lodge",    "Co-op progression",     "Monster Hunter Freedom Unite \xC2\xB7 Phantasy Star Portable 2",                                   0xFF226622 },
-	{ "Shooter Block",   "Tactical multiplayer",  "SOCOM Fireteam Bravo \xC2\xB7 Resistance: Retribution \xC2\xB7 Coded Arms",                        0xFF883311 },
-	{ "Weird UMD Zone",  "Party & oddball picks", "Half-Minute Hero \xC2\xB7 Work Time Fun \xC2\xB7 Fat Princess \xC2\xB7 Power Stone Collection",    0xFF664488 },
-	{ "Raceway",         "Arcade & sim racing",   "Burnout Dominator \xC2\xB7 Wipeout Pulse \xC2\xB7 Ridge Racer \xC2\xB7 Need for Speed Most Wanted 5-1-0", 0xFFCCAA22 },
-	{ "Court & Field",   "Sports pick-up games",  "NBA Street Showdown \xC2\xB7 FIFA 14 \xC2\xB7 Madden NFL 12 \xC2\xB7 Hot Shots Golf: Open Tee 2", 0xFF1188AA },
-	{ "RPG Guild",       "Co-op quests & loot",   "Lord of Arcana \xC2\xB7 Untold Legends: Brotherhood of the Blade \xC2\xB7 Valhalla Knights",       0xFF8844AA },
-	{ "Strike Ops",      "Tactical co-op",        "Metal Gear Solid: Peace Walker \xC2\xB7 Killzone: Liberation \xC2\xB7 Tom Clancy's Ghost Recon Predator", 0xFF446688 },
+	{ "Hub lane Fight Club name", "Hub lane Fight Club subtitle", "Hub lane Fight Club games", 0xFF2244CC },
+	{ "Hub lane Hunter Lodge name", "Hub lane Hunter Lodge subtitle", "Hub lane Hunter Lodge games", 0xFF226622 },
+	{ "Hub lane Shooter Block name", "Hub lane Shooter Block subtitle", "Hub lane Shooter Block games", 0xFF883311 },
+	{ "Hub lane Weird UMD Zone name", "Hub lane Weird UMD Zone subtitle", "Hub lane Weird UMD Zone games", 0xFF664488 },
+	{ "Hub lane Raceway name", "Hub lane Raceway subtitle", "Hub lane Raceway games", 0xFFCCAA22 },
+	{ "Hub lane Court and Field name", "Hub lane Court and Field subtitle", "Hub lane Court and Field games", 0xFF1188AA },
+	{ "Hub lane RPG Guild name", "Hub lane RPG Guild subtitle", "Hub lane RPG Guild games", 0xFF8844AA },
+	{ "Hub lane Strike Ops name", "Hub lane Strike Ops subtitle", "Hub lane Strike Ops games", 0xFF446688 },
 };
 
 static constexpr int kSocialLaneCount = sizeof(kSocialLanes) / sizeof(kSocialLanes[0]);
@@ -624,6 +624,11 @@ protected:
 	void Draw(UIContext &dc) override {
 		using namespace UI;
 
+		auto mm = GetI18NCategory(I18NCat::MAINMENU);
+		const std::string laneName = std::string(mm->T(lane_.nameKey));
+		const std::string laneSubtitle = std::string(mm->T(lane_.subtitleKey));
+		const std::string laneGames = std::string(mm->T(lane_.gamesKey));
+
 		const Style &style = HasFocus() ? dc.GetTheme().itemFocusedStyle
 			: (down_ ? dc.GetTheme().itemDownStyle : dc.GetTheme().itemStyle);
 
@@ -646,7 +651,7 @@ protected:
 		// Lane name (★ when set as favorite in profile)
 		dc.SetFontScale(1.0f, 1.0f);
 		dc.SetFontStyle(dc.GetTheme().uiFont);
-		std::string titleStr = lane_.name;
+		std::string titleStr = laneName;
 		if (laneIndex_ >= 0 && laneIndex_ < kSocialLaneCount && g_Config.iSocialHubFavoriteLane == laneIndex_) {
 			titleStr += " \xE2\x98\x85";
 		}
@@ -654,10 +659,10 @@ protected:
 
 		// Subtitle in accent color
 		dc.SetFontScale(0.72f, 0.72f);
-		dc.DrawText(lane_.subtitle, titleX, bounds_.y + 42.0f, colorAlpha(accent, 0.9f), ALIGN_TOPLEFT);
+		dc.DrawText(laneSubtitle, titleX, bounds_.y + 42.0f, colorAlpha(accent, 0.9f), ALIGN_TOPLEFT);
 
 		// Games list in dim info color
-		dc.DrawText(lane_.games, titleX, bounds_.y + 63.0f,
+		dc.DrawText(laneGames, titleX, bounds_.y + 63.0f,
 			colorAlpha(dc.GetTheme().infoStyle.fgColor, 0.7f), ALIGN_TOPLEFT);
 
 		dc.SetFontScale(1.0f, 1.0f);
@@ -1260,7 +1265,7 @@ void MainScreen::CreateSocialHubTab() {
 	layout->SetSpacing(8.0f);
 
 	// Welcome header
-	layout->Add(new TextView("OpenPSP Social Hub", ALIGN_LEFT, true,
+	layout->Add(new TextView(mm->T("OpenPSP Social Hub", "OpenPSP Social Hub"), ALIGN_LEFT, true,
 		new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, Margins(8, 4, 8, 2))));
 	layout->Add(new TextView(mm->T("Pick a lane, set up networking, play like it's 2009."),
 		ALIGN_LEFT, true,
@@ -1276,8 +1281,8 @@ void MainScreen::CreateSocialHubTab() {
 			profileBlock += "\n";
 		}
 		if (g_Config.iSocialHubFavoriteLane >= 0 && g_Config.iSocialHubFavoriteLane < kSocialLaneCount) {
-			profileBlock += "Favorite lane: ";
-			profileBlock += kSocialLanes[g_Config.iSocialHubFavoriteLane].name;
+			const std::string favLaneName = std::string(mm->T(kSocialLanes[g_Config.iSocialHubFavoriteLane].nameKey));
+			profileBlock += ApplySafeSubstitutions(mm->T("Favorite lane: %1", "Favorite lane: %1"), favLaneName);
 			profileBlock += "\n";
 		}
 		if (!g_Config.sSocialHubStatusLine.empty()) {
@@ -1285,8 +1290,7 @@ void MainScreen::CreateSocialHubTab() {
 			profileBlock += "\n";
 		}
 		if (!g_Config.sSocialHubPinnedGames.empty()) {
-			profileBlock += "Pinned games: ";
-			profileBlock += g_Config.sSocialHubPinnedGames;
+			profileBlock += ApplySafeSubstitutions(mm->T("Pinned games: %1", "Pinned games: %1"), g_Config.sSocialHubPinnedGames);
 		}
 		layout->Add(new TextView(profileBlock, ALIGN_LEFT, true,
 			new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, Margins(8, 0, 8, 4))));
@@ -1294,15 +1298,15 @@ void MainScreen::CreateSocialHubTab() {
 
 	LinearLayout *profileRow = new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, Margins(8, 0, 8, 8)));
 	profileRow->SetSpacing(8.0f);
-	profileRow->Add(new Choice(mm->T("Edit profile"), new LinearLayoutParams(WRAP_CONTENT, WRAP_CONTENT)))->OnClick.Add([this](UI::EventParams &) {
+	profileRow->Add(new Choice(mm->T("Edit profile", "Edit profile"), new LinearLayoutParams(WRAP_CONTENT, WRAP_CONTENT)))->OnClick.Add([this](UI::EventParams &) {
 		auto mm = GetI18NCategory(I18NCat::MAINMENU);
-		auto *namePopup = new TextEditPopupScreen(&g_Config.sSocialHubDisplayName, mm->T("Your display name"), mm->T("Display name"), 48);
+		auto *namePopup = new TextEditPopupScreen(&g_Config.sSocialHubDisplayName, mm->T("Your display name", "Your display name"), mm->T("Display name", "Display name"), 48);
 		namePopup->OnChange.Add([this, mm](UI::EventParams &) {
 			g_Config.Save("SocialHubProfileName");
-			auto *statusPopup = new TextEditPopupScreen(&g_Config.sSocialHubStatusLine, mm->T("e.g. Down for Tekken tonight"), mm->T("Status line"), 120);
+			auto *statusPopup = new TextEditPopupScreen(&g_Config.sSocialHubStatusLine, mm->T("e.g. Down for Tekken tonight", "e.g. Down for Tekken tonight"), mm->T("Status line", "Status line"), 120);
 			statusPopup->OnChange.Add([this, mm](UI::EventParams &) {
 				g_Config.Save("SocialHubProfileStatus");
-				auto *pinnedPopup = new TextEditPopupScreen(&g_Config.sSocialHubPinnedGames, mm->T("Comma-separated game titles"), mm->T("Pinned games"), 200);
+				auto *pinnedPopup = new TextEditPopupScreen(&g_Config.sSocialHubPinnedGames, mm->T("Comma-separated game titles", "Comma-separated game titles"), mm->T("Pinned games", "Pinned games"), 200);
 				pinnedPopup->OnChange.Add([this](UI::EventParams &) {
 					g_Config.Save("SocialHubProfile");
 					RecreateViews();
@@ -1316,7 +1320,7 @@ void MainScreen::CreateSocialHubTab() {
 	profileRow->Add(new Choice(mm->T("Multiplayer setup"), new LinearLayoutParams(WRAP_CONTENT, WRAP_CONTENT)))->OnClick.Add([this](UI::EventParams &) {
 		screenManager()->push(new GameSettingsScreen(Path(), "", false, true));
 	});
-	profileRow->Add(new Choice(mm->T("Join Discord"), ImageID("I_LOGO_DISCORD"), new LinearLayoutParams(WRAP_CONTENT, WRAP_CONTENT)))->OnClick.Handle(this, &MainScreen::OnPPSSPPOrg);
+	profileRow->Add(new Choice(mm->T("Join Discord", "Join Discord"), ImageID("I_LOGO_DISCORD"), new LinearLayoutParams(WRAP_CONTENT, WRAP_CONTENT)))->OnClick.Handle(this, &MainScreen::OnPPSSPPOrg);
 	layout->Add(profileRow);
 
 	// Lane cards
@@ -1334,7 +1338,7 @@ void MainScreen::CreateSocialHubTab() {
 	layout->Add(new Spacer(8.0f));
 
 	scroll->Add(layout);
-	tabHolder_->AddTab(mm->T("Hub"), ImageID::invalid(), scroll);
+	tabHolder_->AddTab(mm->T("Hub", "Hub"), ImageID::invalid(), scroll);
 }
 
 void MainScreen::PushSocialHubOnboarding() {
@@ -1342,12 +1346,12 @@ void MainScreen::PushSocialHubOnboarding() {
 	auto mm = GetI18NCategory(I18NCat::MAINMENU);
 	auto di = GetI18NCategory(I18NCat::DIALOG);
 
-	const std::string body = std::string(mm->T("The Hub tab lists multiplayer lanes and a simple local profile.")) + "\n" +
-		mm->T("Tap any lane card to star it as your favorite. Use Edit profile for display name, status, and pinned games.") + "\n" +
+	const std::string body = std::string(mm->T("The Hub tab lists multiplayer lanes and a simple local profile.", "The Hub tab lists multiplayer lanes and a simple local profile.")) + "\n" +
+		mm->T("Tap any lane card to star it as your favorite. Use Edit profile for display name, status, and pinned games.", "Tap any lane card to star it as your favorite. Use Edit profile for display name, status, and pinned games.") + "\n" +
 		mm->T("Multiplayer setup opens Settings on the Networking tab (ad hoc server, relay, chat).") + "\n" +
-		mm->T("Join Discord from the Hub or the side menu for events and rooms.");
+		mm->T("Join Discord from the Hub or the side menu for events and rooms.", "Join Discord from the Hub or the side menu for events and rooms.");
 
-	auto *welcome = new MessagePopupScreen(mm->T("Welcome to OpenPSP"), body, di->T("OK"), "", [this](bool) {
+	auto *welcome = new MessagePopupScreen(mm->T("Welcome to OpenPSP", "Welcome to OpenPSP"), body, di->T("OK"), "", [this](bool) {
 		g_Config.bSocialHubOnboardingComplete = true;
 		g_Config.Save("SocialHubOnboarding");
 		RecreateViews();
