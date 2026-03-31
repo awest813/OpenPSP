@@ -161,6 +161,21 @@ void UITabbedBaseDialogScreen::SetCurrentTab(int tab) {
 	tabHolder_->SetCurrentTab(tab);
 }
 
+bool UITabbedBaseDialogScreen::SwitchToTabByContentTag(std::string_view tag) {
+	if (tag.empty() || !tabHolder_) {
+		return false;
+	}
+	EnsureTabs();
+	const std::vector<UI::ViewGroup *> &tabs = tabHolder_->GetTabContentViews();
+	for (int i = 0; i < (int)tabs.size(); i++) {
+		if (tabs[i] && tabs[i]->Tag() == tag) {
+			SetCurrentTab(i);
+			return true;
+		}
+	}
+	return false;
+}
+
 void UITabbedBaseDialogScreen::ApplySearchFilter() {
 	using namespace UI;
 	auto se = GetI18NCategory(I18NCat::SEARCH);

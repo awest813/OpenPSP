@@ -129,8 +129,8 @@ public:
 	}
 };
 
-GameSettingsScreen::GameSettingsScreen(const Path &gamePath, std::string gameID, bool editThenRestore)
-	: UITabbedBaseDialogScreen(gamePath, TabDialogFlags::HorizontalOnlyIcons | TabDialogFlags::VerticalShowIcons), gameID_(gameID), editGameSpecificThenRestore_(editThenRestore) {
+GameSettingsScreen::GameSettingsScreen(const Path &gamePath, std::string gameID, bool editThenRestore, bool openNetworkingTab)
+	: UITabbedBaseDialogScreen(gamePath, TabDialogFlags::HorizontalOnlyIcons | TabDialogFlags::VerticalShowIcons), gameID_(gameID), editGameSpecificThenRestore_(editThenRestore), openNetworkingTab_(openNetworkingTab) {
 	prevInflightFrames_ = g_Config.iInflightFrames;
 	analogSpeedMapped_ = KeyMap::InputMappingsFromPspButton(VIRTKEY_SPEED_ANALOG, nullptr, true);
 
@@ -174,6 +174,14 @@ GameSettingsScreen::~GameSettingsScreen() {
 void GameSettingsScreen::PreCreateViews() {
 	ReloadAllPostShaderInfo(screenManager()->getDrawContext());
 	ReloadAllThemeInfo();
+}
+
+void GameSettingsScreen::CreateViews() {
+	UITabbedBaseDialogScreen::CreateViews();
+	if (openNetworkingTab_) {
+		openNetworkingTab_ = false;
+		SwitchToTabByContentTag("GameSettingsNetworking");
+	}
 }
 
 // This needs before run CheckGPUFeatures()

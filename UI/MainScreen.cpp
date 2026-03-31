@@ -1262,7 +1262,7 @@ void MainScreen::CreateSocialHubTab() {
 	// Welcome header
 	layout->Add(new TextView("OpenPSP Social Hub", ALIGN_LEFT, true,
 		new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, Margins(8, 4, 8, 2))));
-	layout->Add(new TextView("Pick a lane — create a room — play like it's 2009.",
+	layout->Add(new TextView(mm->T("Pick a lane, set up networking, play like it's 2009."),
 		ALIGN_LEFT, true,
 		new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, Margins(8, 0, 8, 8))));
 
@@ -1313,6 +1313,9 @@ void MainScreen::CreateSocialHubTab() {
 		});
 		screenManager()->push(namePopup);
 	});
+	profileRow->Add(new Choice(mm->T("Multiplayer setup"), new LinearLayoutParams(WRAP_CONTENT, WRAP_CONTENT)))->OnClick.Add([this](UI::EventParams &) {
+		screenManager()->push(new GameSettingsScreen(Path(), "", false, true));
+	});
 	profileRow->Add(new Choice(mm->T("Join Discord"), ImageID("I_LOGO_DISCORD"), new LinearLayoutParams(WRAP_CONTENT, WRAP_CONTENT)))->OnClick.Handle(this, &MainScreen::OnPPSSPPOrg);
 	layout->Add(profileRow);
 
@@ -1341,6 +1344,7 @@ void MainScreen::PushSocialHubOnboarding() {
 
 	const std::string body = std::string(mm->T("The Hub tab lists multiplayer lanes and a simple local profile.")) + "\n" +
 		mm->T("Tap any lane card to star it as your favorite. Use Edit profile for display name, status, and pinned games.") + "\n" +
+		mm->T("Multiplayer setup opens Settings on the Networking tab (ad hoc server, relay, chat).") + "\n" +
 		mm->T("Join Discord from the Hub or the side menu for events and rooms.");
 
 	auto *welcome = new MessagePopupScreen(mm->T("Welcome to OpenPSP"), body, di->T("OK"), "", [this](bool) {

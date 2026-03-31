@@ -1,8 +1,12 @@
 #include "AdhocServerScreen.h"
 
+#include "Common/Data/Text/I18n.h"
 #include "Common/Net/Resolve.h"
-#include "Common/UI/Root.h"
 #include "Common/StringUtils.h"
+#include "Common/System/OSD.h"
+#include "Common/System/System.h"
+#include "Common/UI/PopupScreens.h"
+#include "Common/UI/Root.h"
 
 AdhocServerScreen::AdhocServerScreen(std::string *value, std::string_view title)
 	: UI::PopupScreen(title, T(I18NCat::DIALOG, "OK"), T(I18NCat::DIALOG, "Cancel")), value_(value) {
@@ -36,44 +40,89 @@ void AdhocServerScreen::CreatePopupContents(UI::ViewGroup *parent) {
 	auto di = GetI18NCategory(I18NCat::DIALOG);
 	auto n = GetI18NCategory(I18NCat::NETWORKING);
 
-	PopupTextInputChoice *textInputChoice = parent->Add(new PopupTextInputChoice(GetRequesterToken(), &editValue_, n->T("Hostname"), "", 256, screenManager()));
+	hostnameChoice_ = parent->Add(new PopupTextInputChoice(GetRequesterToken(), &editValue_, n->T("Hostname"), "", 256, screenManager()));
 
-	std::vector<std::string> listIP;
+	parent->Add(new TextView(n->T("Ad hoc server list hint"), ALIGN_LEFT, true,
+		new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, Margins(0, 4, 0, 0))));
+
+	struct PickRow {
+		std::string tagHost;
+		std::string buttonText;
+	};
+	std::vector<PickRow> rows;
 	for (const auto &item : listItems_) {
-		listIP.push_back(item.hostname);
+		if (item.hostname.empty()) {
+			continue;
+		}
+		PickRow row;
+		row.tagHost = item.hostname;
+		if (!item.name.empty() && item.name != item.hostname) {
+			row.buttonText = item.name + "\n" + item.hostname;
+			if (!item.location.empty()) {
+				row.buttonText += " — ";
+				row.buttonText += item.location;
+			}
+		} else {
+			row.buttonText = item.hostname;
+		}
+		rows.push_back(std::move(row));
+	}
+	{
+		PickRow row;
+		row.tagHost = "localhost";
+		row.buttonText = "localhost";
+		rows.push_back(std::move(row));
+	}
+	std::vector<std::string> listIP;
+	net::GetLocalIP4List(listIP);
+	for (const auto &label : listIP) {
+		if (label.find("127.") != 0 && label.find("169.254.") != 0 && label.find("0.") != 0) {
+			PickRow row;
+			row.tagHost = label;
+			row.buttonText = label;
+			rows.push_back(std::move(row));
+		}
 	}
 
-	// Add non-editable items
-	listIP.push_back("localhost");
-
 	parent->Add(new Spacer(5.0f));
-
-	net::GetLocalIP4List(listIP);
 
 	ScrollView *scrollView = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(1.0f));
 	LinearLayout *innerView = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
 	innerView->SetSpacing(5.0f);
-	if (listIP.size() > 0) {
-		for (const auto& label : listIP) {
-			// Filter out IP prefixed with "127." and "169.254." also "0." since they can be redundant or unusable
-			if (label.find("127.") != 0 && label.find("169.254.") != 0 && label.find("0.") != 0) {
-				auto button = innerView->Add(new Button(label, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
-				button->OnClick.Add([this](UI::EventParams &e) {
-					std::string value = e.v->Tag();
-					if (!value.empty()) {
-						editValue_ = value;
-						// TODO: Let's change this to an actual button later.
-						System_CopyStringToClipboard(value);
-					}
-				});
-				button->SetTag(label);
+	auto di = GetI18NCategory(I18NCat::DIALOG);
+	for (const auto &row : rows) {
+		auto *rowLayout = innerView->Add(new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
+		rowLayout->SetSpacing(6.0f);
+		Button *useBtn = rowLayout->Add(new Button(row.buttonText, new LinearLayoutParams(1.0f)));
+		useBtn->SetTag(row.tagHost);
+		useBtn->OnClick.Add([this](UI::EventParams &e) {
+			std::string value = e.v->Tag();
+			if (value.empty()) {
+				return;
 			}
-		}
+			editValue_ = value;
+			if (hostnameChoice_) {
+				UI::EventParams ch{};
+				ch.v = hostnameChoice_;
+				hostnameChoice_->OnChange.Trigger(ch);
+			}
+			if (progressView_) {
+				progressView_->SetVisibility(UI::V_GONE);
+			}
+		});
+		Button *copyBtn = rowLayout->Add(new Button(di->T("Copy to clipboard"), new LinearLayoutParams(WRAP_CONTENT, WRAP_CONTENT)));
+		copyBtn->SetTag(row.tagHost);
+		copyBtn->OnClick.Add([di](UI::EventParams &e) {
+			std::string value = e.v->Tag();
+			if (!value.empty()) {
+				System_CopyStringToClipboard(value);
+				g_OSD.Show(OSDType::MESSAGE_INFO, ApplySafeSubstitutions(di->T("Copied to clipboard: %1"), value), 0.0f, "copyToClip");
+			}
+		});
 	}
 
 	scrollView->Add(innerView);
 	parent->Add(scrollView);
-	listIP.clear(); listIP.shrink_to_fit();
 
 	progressView_ = parent->Add(new NoticeView(NoticeLevel::INFO, n->T("Validating address..."), "", new LinearLayoutParams(Margins(0, 5, 0, 0))));
 	progressView_->SetVisibility(UI::V_GONE);
