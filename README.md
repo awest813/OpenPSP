@@ -1,21 +1,52 @@
-PPSSPP - a fast and portable PSP emulator
-=========================================
+OpenPSP — Social Multiplayer Fork of PPSSPP
+============================================
 
-Created by Henrik Rydgård
+**OpenPSP** is a downstream fork of [PPSSPP](https://github.com/hrydgard/ppsspp) focused on making
+PSP multiplayer social and accessible again.  The core goal is a dead-simple experience: hop in,
+pick a game, jump into a room, and play with friends — *portable multiplayer nightlife for grown-up gamers.*
 
-Additional code by many contributors, see the Credits screen
+> **This is not an official PPSSPP release.**  All emulation accuracy and upstream improvements come
+> from PPSSPP.  OpenPSP layers social-hub features on top.  Bring your own legally-obtained game dumps.
 
-Originally released under the GPL 2.0 (and later) in November 2012
+Fork source: https://github.com/awest813/OpenPSP
 
-Official website: https://www.ppsspp.org/
+Discord: *(join link coming soon — see [SOCIAL_HUB_VISION.md](SOCIAL_HUB_VISION.md) for channel plan)*
 
-Discord: https://discord.gg/5NJB6dD
+## What's different in OpenPSP
+
+### Social Hub (built)
+- **Hub tab** replaces the plain game browser as the first screen — shows your profile and lane cards.
+- **Four multiplayer lanes** with curated game lists:
+  - 🥊 **Fight Club** — Tekken 6 · Dissidia 012 · Darkstalkers Chronicle · Power Stone Collection
+  - 🐉 **Hunter Lodge** — Monster Hunter Freedom Unite · Phantasy Star Portable 2
+  - 🎯 **Shooter Block** — SOCOM Fireteam Bravo · Resistance: Retribution · Coded Arms
+  - 🃏 **Weird UMD Zone** — Half-Minute Hero · Work Time Fun · Fat Princess · Power Stone Collection
+- **Light profiles** — display name, status line ("Down for Tekken tonight"), pinned games, favorite lane.
+- **Discord Rich Presence** — shows your current game in Discord automatically.
+- **Join Discord** shortcut in the Hub and side menu.
+- **Onboarding screen** for new users explaining lanes, rooms, and how to find events.
+- **Improved ad hoc lobby picker** — streamlined flow for starting and joining local-wireless sessions.
+
+### Roadmap
+- **[SOCIAL_HUB_VISION.md](SOCIAL_HUB_VISION.md)** — product vision, lane design, Phase 1 / Phase 2 roadmap.
+- **[PERFORMANCE_ROADMAP.md](PERFORMANCE_ROADMAP.md)** — frame-pacing, CPU/GPU, and asset-pipeline work.
+
+---
+
+## Upstream PPSSPP
+
+OpenPSP is built on PPSSPP.  The sections below are the upstream release notes and reference links.
+
+PPSSPP was created by Henrik Rydgård.  Additional code by many contributors, see the Credits screen.
+Originally released under the GPL 2.0 (and later) in November 2012.
+
+Official PPSSPP website: https://www.ppsspp.org/
 
 No BIOS file required to play, PPSSPP is an "HLE" emulator.  Default settings balance good compatibility and speed.
 
-To contribute, see [the development page](https://www.ppsspp.org/docs/development/).  Help testing, investigating, or fixing is always welcome.  See [the list of issues](https://github.com/hrydgard/ppsspp/issues).
+To contribute upstream, see [the development page](https://www.ppsspp.org/docs/development/).  Help testing, investigating, or fixing is always welcome.  See [the list of issues](https://github.com/hrydgard/ppsspp/issues).
 
-For the latest source code, see [our GitHub page](https://github.com/hrydgard/ppsspp).
+For the latest upstream source code, see [the PPSSPP GitHub page](https://github.com/hrydgard/ppsspp).
 
 For documentation of all kinds (usage, reference, development), see the [documentation on the main website](https://www.ppsspp.org/docs)
 
