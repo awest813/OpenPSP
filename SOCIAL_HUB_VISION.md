@@ -83,31 +83,36 @@ Treat these as the **v1 supported list** for compatibility buckets, copy, and QA
 
 ### Client / fork
 
-- Room model: create, invite code or link, list open rooms by game/lane.  
-- “Join same session” path from invite + rejoin-after-drop UX.  
-- Hub UI entry points per lane; flagship games pinned.  
-- Optional: session discovery widget (who’s in what game).  
-- Telemetry hooks only if needed for stability — privacy-conscious, minimal by default.
+- ✅ Hub UI entry points per lane; flagship games pinned (lane cards: Fight Club, Hunter Lodge, Shooter Block, Weird UMD Zone).
+- ✅ Light profiles — display name, status line, pinned games, favorite lane.
+- ✅ Social Hub onboarding screen for new users.
+- ✅ Discord Rich Presence — current game shown in Discord automatically.
+- ✅ “Join Discord” shortcut in Hub tab and side menu.
+- ✅ Improved ad hoc lobby picker — streamlined flow for starting and joining local-wireless sessions.
+- 🔁 Room model: create, invite code or link, list open rooms by game/lane — Multiplayer Rooms entry point exists; full flow in progress.
+- ⬜ “Join same session” path from invite + rejoin-after-drop UX.
+- ⬜ Session discovery widget (who’s in what game).
+- ⬜ Telemetry hooks only if needed for stability — privacy-conscious, minimal by default.
 
 ### Discord
 
-- Channels aligned to lanes: `#fight-club`, `#hunter-lodge`, `#shooter-block`, `#weird-umd`, `#general`, `#lfg`.  
-- Event posts template: game, time (timezone), room/invite instructions, “new player OK” flag.  
-- Role or tag strategy: optional `@Fight Night` / `@Hunt` for pings without noise.  
-- Pin rules: curated list link, how to get the client build, netplay troubleshooting one-pager.
+- ⬜ Channels aligned to lanes: `#fight-club`, `#hunter-lodge`, `#shooter-block`, `#weird-umd`, `#general`, `#lfg`.
+- ⬜ Event posts template: game, time (timezone), room/invite instructions, “new player OK” flag.
+- ⬜ Role or tag strategy: optional `@Fight Night` / `@Hunt` for pings without noise.
+- ⬜ Pin rules: curated list link, how to get the client build, netplay troubleshooting one-pager.
 
 ### Landing / copy (angles)
 
-- Headline options in the spirit of: *Portable multiplayer after dark* / *Your PSP adhoc crew, without the 2009 setup pain.*  
-- Bullets: curated multiplayer nights, one client, rooms not forums, built for friends and small groups.  
-- Clear CTA: download client, join Discord, see this week’s schedule.  
-- Legal/ethical line users expect: bring your own dumps; no ROM hosting narrative.
+- ⬜ Headline options in the spirit of: *Portable multiplayer after dark* / *Your PSP adhoc crew, without the 2009 setup pain.*
+- ⬜ Bullets: curated multiplayer nights, one client, rooms not forums, built for friends and small groups.
+- ⬜ Clear CTA: download client, join Discord, see this week’s schedule.
+- ⬜ Legal/ethical line users expect: bring your own dumps; no ROM hosting narrative.
 
 ### Ops / culture
 
-- Run **one** recurring night weekly minimum before scaling.  
-- Capture clips/screenshots from real sessions for social proof.  
-- Tune fork from **actual** disconnect, desync, and invite pain — not hypothetical compatibility lists.
+- ⬜ Run **one** recurring night weekly minimum before scaling.
+- ⬜ Capture clips/screenshots from real sessions for social proof.
+- ⬜ Tune fork from **actual** disconnect, desync, and invite pain — not hypothetical compatibility lists.
 
 ---
 
